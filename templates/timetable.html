@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+{% block title %}Timetable — ATSS{% endblock %}
+{% block content %}
+<style>
+.tt-input:focus   { border-color: #FF9000 !important; }
+.tt-sort-th:hover { color: #FF9000; }
+</style>
+<div class="space-y-6">
+
+    {# ── Header ── #}
+    <div class="border-b border-stone-200 dark:border-zinc-800 pb-4 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+            <h1 class="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">Timetable</h1>
+            <p class="text-sm text-stone-400 dark:text-zinc-500 mt-0.5">View and manage the generated schedule</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <form method="POST" action="{{ url_for('tt_bp.timetable_generate') }}" id="gen-form" style="display:contents">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <select name="session_type" id="gen-session"
+                    class="bg-stone-50 dark:bg-zinc-800 border border-stone-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-sm px-3 py-2 focus:outline-none transition-colors" style="--tw-ring-color:#FF9000" onfocus="this.style.borderColor='#FF9000'" onblur="this.style.borderColor=''">
+                    <option value="">All Sessions</option>
+                    {% for st in session_types %}
+                    <option value="{{ st }}">{{ st }} Sem ({{ '1,3,5,7' if st == 'Odd' else '2,4,6' }})</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" onclick="return confirm('Regenerate timetable? Unlocked entries will be cleared.')"
+                    style="background:#FF9000;color:#18181b;font-weight:700;font-size:.875rem;padding:.5rem 1rem;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Generate</button>
+            </form>
+            <a href="{{ url_for('tt_bp.export_excel') }}" class="bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 border border-stone-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm px-4 py-2 transition-colors">Export Excel</a>
+            <a href="{{ url_for('tt_bp.export_pdf') }}"   class="bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 border border-stone-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm px-4 py-2 transition-colors">Export PDF</a>
+        </div>
+    </div>
+
+    {# ── Filters ── #}
+    {% set inp = "w-full bg-stone-50 dark:bg-zinc-800 border border-stone-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-sm px-3 py-2 focus:outline-none transition-colors tt-input" %}
+    {% set lbl = "block text-xs font-semibold text-stone-400 dark:text-zinc-500 uppercase tracking-wider mb-1" %}
+    <div class="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 p-5">
+        <p class="text-xs font-semibold text-stone-400 dark:text-zinc-500 uppercase tracking-wider mb-4">Filters</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+
+            <div class="lg:col-span-2">
+                <label class="{{ lbl }}">Search</label>
+                <input type="text" id="f-search" placeholder="Faculty, subject, room…" class="{{ inp }}">
+            </div>
+
+            <div>
+                <label class="{{ lbl }}">Session</label>
+                <select id="f-session" class="{{ inp }}">
+                    <option value="">All</option>
+                    {% for st in session_types %}
+                    <option value="{{ st }}" {% if sel_session == st %}selected{% endif %}>{{ st }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="{{ lbl }}">Day</label>
+                <select id="f-day" class="{{ inp }}">
+                    <option value="">All Days</option>
+                    {% for d in days %}
+                    <option value="{{ d }}">{{ d }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="{{ lbl }}">Slot</label>
+                <select id="f-slot" class="{{ inp }}">
+                    <option value="">All Slots</option>
+                    {% for i in range(1,7) %}<option value="{{ i }}">Slot {{ i }}</option>{% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="{{ lbl }}">Division</label>
+                <select id="f-division" class="{{ inp }}">
+                    <option value="">All</option>
+                    {% for d in divisions %}
+                    <option value="{{ d.id }}" {% if sel_div == d.id %}selected{% endif %}>
+                        {{ d.course }} S{{ d.semester }} {{ d.division }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="{{ lbl }}">Faculty</label>
+                <select id="f-faculty" class="{{ inp }}">
+                    <option value="">All</option>
+                    {% for f in faculty %}
+                    <option value="{{ f.id }}" {% if sel_fac == f.id %}selected{% endif %}>{{ f.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="{{ lbl }}">Type</label>
+                <select id="f-type" class="{{ inp }}">
+                    <option value="">All</option>
+                    <option value="Theory">Theory</option>
+                    <option value="Lab">Lab</option>
+                </select>
+            </div>
+
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+            <span id="result-count" class="text-xs text-stone-400 dark:text-zinc-500"></span>
+            <button onclick="clearFilters()" class="text-xs underline" style="color:#FF9000">Clear filters</button>
+        </div>
+    </div>
+
+    {# ── Table ── #}
+    <div class="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm" id="tt-table">
+                <thead>
+                    <tr class="border-b border-stone-200 dark:border-zinc-800 text-xs text-stone-400 dark:text-zinc-500 uppercase tracking-wider">
+                        <th class="px-5 py-3 text-left cursor-pointer select-none tt-sort-th" onclick="sortTable(0)">Day <span class="sort-icon">↕</span></th>
+                        <th class="px-5 py-3 text-left cursor-pointer select-none tt-sort-th" onclick="sortTable(1)">Slot <span class="sort-icon">↕</span></th>
+                        <th class="px-5 py-3 text-left cursor-pointer select-none tt-sort-th" onclick="sortTable(2)">Faculty <span class="sort-icon">↕</span></th>
+                        <th class="px-5 py-3 text-left cursor-pointer select-none tt-sort-th" onclick="sortTable(3)">Subject <span class="sort-icon">↕</span></th>
+                        <th class="px-5 py-3 text-left cursor-pointer select-none tt-sort-th" onclick="sortTable(4)">Division <span class="sort-icon">↕</span></th>
+                        <th class="px-5 py-3 text-left cursor-pointer select-none tt-sort-th" onclick="sortTable(5)">Room <span class="sort-icon">↕</span></th>
+                        <th class="px-5 py-3 text-left">Batch</th>
+                        <th class="px-5 py-3 text-left">Type</th>
+                        <th class="px-5 py-3 text-left">Sem</th>
+                        <th class="px-5 py-3 text-left">Lock</th>
+                    </tr>
+                </thead>
+                <tbody id="tt-body" class="divide-y divide-stone-100 dark:divide-zinc-800">
+                {% for e in entries %}
+                <tr class="tt-row hover:bg-stone-50 dark:hover:bg-zinc-800/60 transition-colors {{ 'opacity-50' if e.locked else '' }}"
+                    data-day="{{ e.day }}"
+                    data-slot="{{ e.slot }}"
+                    data-faculty-id="{{ e.faculty_id or '' }}"
+                    data-division-id="{{ e.division_id or '' }}"
+                    data-session="{{ e.division.session_type if e.division else '' }}"
+                    data-type="{{ e.subject.type if e.subject else '' }}"
+                    data-search="{{ [
+                        e.faculty.name if e.faculty else '',
+                        e.subject.subject_name if e.subject else '',
+                        e.room.room_no if e.room else '',
+                        e.division.course if e.division else '',
+                        e.batch or ''
+                    ] | join(' ') | lower }}">
+                    <td class="px-5 py-3 text-zinc-600 dark:text-zinc-300">{{ e.day }}</td>
+                    <td class="px-5 py-3 text-stone-400 dark:text-zinc-500 font-mono">{{ e.slot }}</td>
+                    <td class="px-5 py-3 text-zinc-900 dark:text-white">{{ e.faculty.name if e.faculty else '—' }}</td>
+                    <td class="px-5 py-3 text-zinc-600 dark:text-zinc-300">{{ e.subject.subject_name if e.subject else '—' }}</td>
+                    <td class="px-5 py-3 text-zinc-600 dark:text-zinc-300">{{ e.division.course ~ ' S' ~ e.division.semester ~ ' ' ~ e.division.division if e.division else '—' }}</td>
+                    <td class="px-5 py-3 text-zinc-600 dark:text-zinc-300">{{ e.room.room_no if e.room else '—' }}</td>
+                    <td class="px-5 py-3 text-stone-400 dark:text-zinc-500">{{ e.batch or '—' }}</td>
+                    <td class="px-5 py-3">
+                        {% if e.subject %}
+                        <span class="text-xs px-2 py-0.5 font-semibold {{ 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' if e.subject.type == 'Theory' else 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' }}">
+                            {{ e.subject.type }}
+                        </span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="px-5 py-3 text-stone-400 dark:text-zinc-500">{{ e.division.semester if e.division else '—' }}</td>
+                    <td class="px-5 py-3">
+                        <button class="lock-btn text-base leading-none" data-id="{{ e.id }}">{{ '🔒' if e.locked else '🔓' }}</button>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# ── Empty state ── #}
+        <div id="empty-state" class="hidden px-6 py-12 text-center text-stone-300 dark:text-zinc-700 text-sm">
+            No entries match the current filters.
+        </div>
+    </div>
+
+    {# ── Pagination ── #}
+    <div id="pagination-bar" class="flex items-center justify-between gap-4 flex-wrap">
+        <div class="text-sm text-stone-400 dark:text-zinc-500">
+            Showing <span id="pg-from" class="font-semibold text-zinc-900 dark:text-white">—</span>
+            – <span id="pg-to" class="font-semibold text-zinc-900 dark:text-white">—</span>
+            of <span id="pg-total" class="font-semibold text-zinc-900 dark:text-white">—</span> entries
+        </div>
+        <div id="pg-controls" class="flex items-center gap-2 bg-black p-3 rounded-xl"></div>
+    </div>
+
+</div>
+
+<script>
+const PAGE_SIZE = 15;
+let currentPage = 1;
+let filteredRows = [];
+let sortCol = -1, sortAsc = true;
+
+const DAY_ORDER = { Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 };
+
+function allRows() {
+    return Array.from(document.querySelectorAll('.tt-row'));
+}
+
+function getFilters() {
+    return {
+        search:   document.getElementById('f-search').value.trim().toLowerCase(),
+        session:  document.getElementById('f-session').value,
+        day:      document.getElementById('f-day').value,
+        slot:     document.getElementById('f-slot').value,
+        division: document.getElementById('f-division').value,
+        faculty:  document.getElementById('f-faculty').value,
+        type:     document.getElementById('f-type').value,
+    };
+}
+
+function applyFilters() {
+    const f = getFilters();
+    filteredRows = allRows().filter(r => {
+        if (f.search   && !r.dataset.search.includes(f.search))         return false;
+        if (f.session  && r.dataset.session  !== f.session)             return false;
+        if (f.day      && r.dataset.day      !== f.day)                 return false;
+        if (f.slot     && r.dataset.slot     !== f.slot)                return false;
+        if (f.division && r.dataset.divisionId !== f.division)          return false;
+        if (f.faculty  && r.dataset.facultyId  !== f.faculty)           return false;
+        if (f.type     && r.dataset.type     !== f.type)                return false;
+        return true;
+    });
+    currentPage = 1;
+    render();
+}
+
+function sortTable(col) {
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = true; }
+
+    document.querySelectorAll('.sort-icon').forEach((el, i) => {
+        el.textContent = i === col ? (sortAsc ? '↑' : '↓') : '↕';
+    });
+
+    filteredRows.sort((a, b) => {
+        let av = a.cells[col]?.textContent.trim() || '';
+        let bv = b.cells[col]?.textContent.trim() || '';
+        if (col === 0) { av = DAY_ORDER[av] || 99; bv = DAY_ORDER[bv] || 99; return sortAsc ? av-bv : bv-av; }
+        if (col === 1) { av = parseInt(av)||0; bv = parseInt(bv)||0; return sortAsc ? av-bv : bv-av; }
+        return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+    render();
+}
+
+function render() {
+    const total = filteredRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    currentPage = Math.min(currentPage, totalPages);
+
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end   = Math.min(start + PAGE_SIZE, total);
+
+    // hide all, show page slice
+    allRows().forEach(r => r.classList.add('hidden'));
+    filteredRows.forEach((r, i) => {
+        if (i >= start && i < end) r.classList.remove('hidden');
+    });
+
+    // empty state
+    document.getElementById('empty-state').classList.toggle('hidden', total > 0);
+
+    // counters
+    document.getElementById('pg-from').textContent  = total ? start + 1 : 0;
+    document.getElementById('pg-to').textContent    = end;
+    document.getElementById('pg-total').textContent = total;
+    document.getElementById('result-count').textContent = total + ' result' + (total !== 1 ? 's' : '');
+
+    // pagination buttons
+    const ctrl = document.getElementById('pg-controls');
+    ctrl.innerHTML = '';
+
+    function mkBtn(label, page, type, disabled) {
+        const b = document.createElement('button');
+        b.textContent = label;
+        b.disabled = disabled;
+        if (type === 'nav') {
+            // Prev / Next style
+            b.className = 'px-5 py-3 rounded-lg font-semibold text-sm transition-colors';
+            if (disabled) {
+                b.style.cssText = 'background:#18181b;color:#71717a;cursor:not-allowed';
+            } else if (label === 'Next') {
+                b.style.cssText = 'background:#FF9000;color:#000;font-weight:700';
+                b.onmouseover = () => b.style.background = '#e68200';
+                b.onmouseout  = () => b.style.background = '#FF9000';
+            } else {
+                b.style.cssText = 'background:#27272a;color:#fff';
+                b.onmouseover = () => b.style.background = '#3f3f46';
+                b.onmouseout  = () => b.style.background = '#27272a';
+            }
+        } else if (type === 'active') {
+            b.className = 'px-4 py-3 rounded-lg font-semibold text-sm';
+            b.style.cssText = 'background:#FF9000;color:#000;font-weight:700';
+        } else if (type === 'ellipsis') {
+            b.className = 'px-2 py-3 text-zinc-500 text-sm font-semibold cursor-default';
+            b.disabled = true;
+        } else {
+            // normal page
+            b.className = 'px-4 py-3 rounded-lg font-semibold text-sm transition-colors';
+            b.style.cssText = 'background:#27272a;color:#fff';
+            b.onmouseover = () => b.style.background = '#3f3f46';
+            b.onmouseout  = () => b.style.background = '#27272a';
+        }
+        if (!disabled && type !== 'ellipsis') b.onclick = () => { currentPage = page; render(); };
+        return b;
+    }
+
+    ctrl.appendChild(mkBtn('Prev', currentPage - 1, 'nav', currentPage === 1));
+
+    // window of pages
+    let lo = Math.max(1, currentPage - 2);
+    let hi = Math.min(totalPages, lo + 4);
+    lo = Math.max(1, hi - 4);
+
+    if (lo > 1) {
+        ctrl.appendChild(mkBtn('1', 1, '1' == currentPage ? 'active' : 'page', false));
+        if (lo > 2) ctrl.appendChild(mkBtn('…', null, 'ellipsis', true));
+    }
+    for (let p = lo; p <= hi; p++) {
+        ctrl.appendChild(mkBtn(p, p, p === currentPage ? 'active' : 'page', false));
+    }
+    if (hi < totalPages) {
+        if (hi < totalPages - 1) ctrl.appendChild(mkBtn('…', null, 'ellipsis', true));
+        ctrl.appendChild(mkBtn(totalPages, totalPages, totalPages === currentPage ? 'active' : 'page', false));
+    }
+
+    ctrl.appendChild(mkBtn('Next', currentPage + 1, 'nav', currentPage === totalPages));
+}
+
+function clearFilters() {
+    ['f-search','f-session','f-day','f-slot','f-division','f-faculty','f-type']
+        .forEach(id => { const el = document.getElementById(id); el.tagName === 'INPUT' ? el.value = '' : el.value = ''; });
+    applyFilters();
+}
+
+// debounce search input
+let _t;
+document.getElementById('f-search').addEventListener('input', () => { clearTimeout(_t); _t = setTimeout(applyFilters, 200); });
+['f-session','f-day','f-slot','f-division','f-faculty','f-type']
+    .forEach(id => document.getElementById(id).addEventListener('change', applyFilters));
+
+// lock toggle (unchanged)
+document.getElementById('tt-body').addEventListener('click', e => {
+    const btn = e.target.closest('.lock-btn');
+    if (!btn) return;
+    fetch(`/timetable/lock/${btn.dataset.id}`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token() }}', 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(d => {
+        btn.textContent = d.locked ? '🔒' : '🔓';
+        btn.closest('tr').classList.toggle('opacity-50', d.locked);
+    });
+});
+
+// init
+applyFilters();
+</script>
+{% endblock %}

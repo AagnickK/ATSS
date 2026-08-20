@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Verify OTP — ATSS{% endblock %}
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4 -mt-8">
+    <div class="w-full max-w-sm">
+
+        <div class="mb-6">
+            <p class="text-xs tracking-widest text-stone-400 dark:text-zinc-500 uppercase mb-1">ATSS</p>
+            <h1 class="text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">Verify email</h1>
+            <p class="text-sm text-stone-400 dark:text-zinc-500 mt-1">Code sent to <span class="text-zinc-700 dark:text-zinc-300">{{ email }}</span></p>
+        </div>
+
+        <div class="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 p-8 space-y-4">
+            <form method="POST" action="{{ url_for('auth.verify_otp') }}" class="space-y-4">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-stone-400 dark:text-zinc-500 uppercase tracking-wider">6-digit OTP</label>
+                    <input type="text" name="otp" maxlength="6" placeholder="······" required autofocus
+                        class="w-full bg-stone-50 dark:bg-zinc-800 border border-stone-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-2xl font-mono tracking-[0.6em] text-center px-3 py-3 focus:outline-none placeholder-stone-300 dark:placeholder-zinc-700 transition-colors atss-inp">
+                    <p class="text-xs text-stone-400 dark:text-zinc-600 pt-1">Check your inbox and enter the 6-digit code.</p>
+                </div>
+                <button type="submit"
+                    class="w-full font-bold text-sm py-2.5 transition-colors" style="background:#FF9000;color:#18181b" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                    Verify
+                </button>
+            </form>
+        </div>
+
+        <p class="text-xs text-stone-400 dark:text-zinc-600 mt-4 text-center">
+            Wrong email?
+            <a href="{{ url_for('auth.register') }}" class="text-zinc-600 dark:text-zinc-400 transition-colors" onmouseover="this.style.color='#FF9000'" onmouseout="this.style.color=''">Back to register</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

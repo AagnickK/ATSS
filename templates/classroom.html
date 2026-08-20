@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Rooms — ATSS{% endblock %}
+{% block content %}
+<div class="space-y-6">
+
+    <div class="border-b border-stone-200 dark:border-zinc-800 pb-4">
+        <h1 class="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">Rooms &amp; Labs</h1>
+        <p class="text-sm text-stone-400 dark:text-zinc-500 mt-0.5">Manage classrooms and laboratory spaces</p>
+    </div>
+
+    <div class="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 p-6">
+        <p class="text-xs font-semibold text-stone-400 dark:text-zinc-500 uppercase tracking-wider mb-4">Add Room</p>
+        <form method="POST" action="{{ url_for('room_bp.room_add') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                {% set inp = "w-full bg-stone-50 dark:bg-zinc-800 border border-stone-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-sm px-3 py-2 focus:outline-none placeholder-stone-300 dark:placeholder-zinc-600 transition-colors atss-inp" %}
+                {% set lbl = "block text-xs font-semibold text-stone-400 dark:text-zinc-500 uppercase tracking-wider" %}
+                <div class="space-y-1">
+                    <label class="{{ lbl }}">Room No</label>
+                    <input type="text" name="room_no" required placeholder="e.g. 101" class="{{ inp }}">
+                </div>
+                <div class="space-y-1">
+                    <label class="{{ lbl }}">Type</label>
+                    <select name="type" class="{{ inp }}">
+                        {% for t in types %}<option>{{ t }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="{{ lbl }}">Capacity</label>
+                    <input type="number" name="capacity" value="30" min="1" class="{{ inp }}">
+                </div>
+                <div class="space-y-1">
+                    <label class="{{ lbl }}">Building</label>
+                    <input type="text" name="building" placeholder="e.g. Main Block" class="{{ inp }}">
+                </div>
+            </div>
+            <button type="submit" style="background:#FF9000;color:#18181b;font-weight:700" class="text-sm px-5 py-2 transition-colors hover:opacity-85">Add Room</button>
+        </form>
+    </div>
+
+    <div class="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800">
+        <div class="px-6 py-3 border-b border-stone-200 dark:border-zinc-800">
+            <p class="text-xs font-semibold text-stone-400 dark:text-zinc-500 uppercase tracking-wider">Records</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-stone-200 dark:border-zinc-800 text-xs text-stone-400 dark:text-zinc-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-left">#</th>
+                        <th class="px-6 py-3 text-left">Room No</th>
+                        <th class="px-6 py-3 text-left">Type</th>
+                        <th class="px-6 py-3 text-left">Capacity</th>
+                        <th class="px-6 py-3 text-left">Building</th>
+                        <th class="px-6 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100 dark:divide-zinc-800">
+                {% for r in rooms %}
+                <tr class="hover:bg-stone-50 dark:hover:bg-zinc-800/60 transition-colors">
+                    <td class="px-6 py-3 text-stone-300 dark:text-zinc-600">{{ r.id }}</td>
+                    <td class="px-6 py-3 text-zinc-900 dark:text-white font-medium">{{ r.room_no }}</td>
+                    <td class="px-6 py-3">
+                        <span class="text-xs px-2 py-0.5 border" style="color:#FF9000;border-color:#FF9000">{{ r.type }}</span>
+                    </td>
+                    <td class="px-6 py-3 text-zinc-600 dark:text-zinc-300">{{ r.capacity }}</td>
+                    <td class="px-6 py-3 text-zinc-600 dark:text-zinc-300">{{ r.building }}</td>
+                    <td class="px-6 py-3">
+                        <form method="POST" action="{{ url_for('room_bp.room_delete', rid=r.id) }}" onsubmit="return confirm('Delete?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-xs text-stone-300 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 transition-colors">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="px-6 py-8 text-center text-stone-300 dark:text-zinc-700">No rooms.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

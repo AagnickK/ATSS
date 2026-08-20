@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Faculty — ATSS{% endblock %}
+{% block content %}
+<div class="space-y-6">
+
+    <div class="border-b border-stone-200 dark:border-zinc-800 pb-4">
+        <h1 class="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">Faculty</h1>
+        <p class="text-sm text-stone-400 dark:text-zinc-500 mt-0.5">Manage faculty members</p>
+    </div>
+
+    <div class="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 p-6">
+        <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-semibold text-stone-400 dark:text-zinc-500 uppercase tracking-wider">Import from Excel</p>
+            <a href="{{ url_for('faculty_bp.faculty_template') }}"
+               style="color:#FF9000;border:1px solid #FF9000"
+               class="text-xs font-semibold px-3 py-1.5 transition-opacity hover:opacity-75 flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+                </svg>
+                Download Template
+            </a>
+        </div>
+        <form method="POST" action="{{ url_for('faculty_bp.faculty_import') }}" enctype="multipart/form-data" class="flex items-center gap-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="file" name="excel" accept=".xlsx,.xls" required
+                class="text-sm text-stone-500 dark:text-zinc-400 file:mr-3 file:py-2 file:px-4 file:border-0 file:bg-stone-100 dark:file:bg-zinc-700 file:text-zinc-700 dark:file:text-zinc-300 file:text-sm file:font-medium hover:file:bg-stone-200 dark:hover:file:bg-zinc-600 file:transition-colors cursor-pointer">
+            <button type="submit" style="background:#FF9000;color:#18181b;font-weight:700" class="text-sm px-4 py-2 transition-colors shrink-0 hover:opacity-85">Import</button>
+        </form>
+    </div>
+
+    <div class="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 p-6">
+        <p class="text-xs font-semibold text-stone-400 dark:text-zinc-500 uppercase tracking-wider mb-4">Add Faculty</p>
+        <form method="POST" action="{{ url_for('faculty_bp.faculty_add') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                {% set inp = "w-full bg-stone-50 dark:bg-zinc-800 border border-stone-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-sm px-3 py-2 focus:outline-none placeholder-stone-300 dark:placeholder-zinc-600 transition-colors atss-inp" %}
+                {% set lbl = "block text-xs font-semibold text-stone-400 dark:text-zinc-500 uppercase tracking-wider" %}
+                <div class="space-y-1">
+                    <label class="{{ lbl }}">Name</label>
+                    <input type="text" name="name" required placeholder="Full name" class="{{ inp }}">
+                </div>
+                <div class="space-y-1">
+                    <label class="{{ lbl }}">Designation</label>
+                    <select name="designation" class="{{ inp }}">
+                        {% for d in designations %}<option>{{ d }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="{{ lbl }}">Department</label>
+                    <input type="text" name="department" placeholder="e.g. IT" class="{{ inp }}">
+                </div>
+                <div class="space-y-1">
+                    <label class="{{ lbl }}">Shift</label>
+                    <select name="shift" class="{{ inp }}">
+                        {% for s in shifts %}<option>{{ s }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="{{ lbl }}">Max Hrs/Wk</label>
+                    <input type="number" name="max_hours" value="18" min="1" max="40" class="{{ inp }}">
+                </div>
+                <div class="space-y-1">
+                    <label class="{{ lbl }}">Email</label>
+                    <input type="email" name="email" placeholder="faculty@example.com" class="{{ inp }}">
+                </div>
+            </div>
+            <button type="submit" style="background:#FF9000;color:#18181b;font-weight:700" class="text-sm px-5 py-2 transition-colors hover:opacity-85">Add Faculty</button>
+        </form>
+    </div>
+
+    <div class="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800">
+        <div class="px-6 py-3 border-b border-stone-200 dark:border-zinc-800">
+            <p class="text-xs font-semibold text-stone-400 dark:text-zinc-500 uppercase tracking-wider">Records</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-stone-200 dark:border-zinc-800 text-xs text-stone-400 dark:text-zinc-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-left">#</th>
+                        <th class="px-6 py-3 text-left">Name</th>
+                        <th class="px-6 py-3 text-left">Designation</th>
+                        <th class="px-6 py-3 text-left">Dept</th>
+                        <th class="px-6 py-3 text-left">Shift</th>
+                        <th class="px-6 py-3 text-left">Max Hrs</th>
+                        <th class="px-6 py-3 text-left">Email</th>
+                        <th class="px-6 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100 dark:divide-zinc-800">
+                {% for f in faculty %}
+                <tr class="hover:bg-stone-50 dark:hover:bg-zinc-800/60 transition-colors">
+                    <td class="px-6 py-3 text-stone-300 dark:text-zinc-600">{{ f.id }}</td>
+                    <td class="px-6 py-3 text-zinc-900 dark:text-white font-medium">{{ f.name }}</td>
+                    <td class="px-6 py-3 text-zinc-600 dark:text-zinc-300">{{ f.designation }}</td>
+                    <td class="px-6 py-3 text-zinc-600 dark:text-zinc-300">{{ f.department }}</td>
+                    <td class="px-6 py-3 text-zinc-600 dark:text-zinc-300">{{ f.shift }}</td>
+                    <td class="px-6 py-3 text-zinc-600 dark:text-zinc-300">{{ f.max_hours }}</td>
+                    <td class="px-6 py-3 text-stone-400 dark:text-zinc-500">{{ f.email }}</td>
+                    <td class="px-6 py-3">
+                        <form method="POST" action="{{ url_for('faculty_bp.faculty_delete', fid=f.id) }}" onsubmit="return confirm('Delete {{ f.name }}?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-xs text-stone-300 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 transition-colors">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="px-6 py-8 text-center text-stone-300 dark:text-zinc-700">No faculty records.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

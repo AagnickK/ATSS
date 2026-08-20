@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATS</title>
+    <script>
+        (function() {
+            var t = localStorage.getItem('atss-theme') || 'dark';
+            if (t === 'dark') document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        })();
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+</head>
+<body class="min-h-screen bg-stone-100 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-mono flex items-center justify-center px-4 transition-colors">
+    <div class="w-full max-w-sm">    
+        <div class="mb-6">
+            <p class="text-xs tracking-widest text-stone-400 dark:text-zinc-500 uppercase mb-1">Welcome to</p>
+            <h1 class="text-3xl font-bold tracking-tight">
+                <span class="text-black dark:text-white">A</span><span class="text-[#FF9000]">TSS</span>
+            </h1>
+            <p class="text-sm text-stone-400 dark:text-zinc-500 mt-1">Automatic Timetable Scheduling System</p>
+        </div>    
+        
+        <div class="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 p-8 space-y-3">
+            {% if current_user.is_authenticated %}
+                <p class="text-sm text-stone-400 dark:text-zinc-400 mb-4">Signed in as <span class="text-zinc-900 dark:text-white font-semibold">{{ current_user.username }}</span></p>
+                <a href="{{ url_for('main.dashboard') }}"
+                    class="block w-full bg-amber-400 hover:bg-amber-300 text-zinc-900 font-bold text-sm py-2.5 text-center transition-colors">
+                    Go to Dashboard
+                </a>
+                <a href="{{ url_for('auth.logout') }}"
+                    class="block w-full bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 border border-stone-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 font-semibold text-sm py-2.5 text-center transition-colors">
+                    Sign Out
+                </a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}"
+                    class="block w-full bg-amber-400 hover:bg-amber-300 text-zinc-900 font-bold text-sm py-2.5 text-center transition-colors">
+                    Sign In
+                </a>
+                <a href="{{ url_for('auth.register') }}"
+                    class="block w-full bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 border border-stone-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 font-semibold text-sm py-2.5 text-center transition-colors">
+                    Create Account
+                </a>
+            {% endif %}
+        </div>
+    </div>
+<script src="{{ url_for('static', filename='cursor.js') }}"></script>
+
+</body>
+</html>
