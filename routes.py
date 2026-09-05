@@ -1,11 +1,9 @@
-import os
-from flask import Blueprint, render_template, redirect, url_for, request, flash, session, jsonify, send_file
+from flask import Blueprint, render_template, redirect, url_for, request, flash, session, jsonify, send_file, current_app, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import generate_csrf
-from werkzeug.utils import secure_filename
 from extensions import db, bcrypt
 from models import User, Faculty, Subject, Division, Room, Allocation, Timetable
-from config import DAYS, MORNING_SLOTS, GENERAL_SLOTS, DESIGNATIONS, SHIFTS, SUBJECT_TYPES, ROOM_TYPES, SESSION_TYPES, ODD_SEMESTERS, EVEN_SEMESTERS
+from config import DAYS, MORNING_SLOTS, GENERAL_SLOTS, DESIGNATIONS, SHIFTS, SUBJECT_TYPES, ROOM_TYPES, SESSION_TYPES, ODD_SEMESTERS, EVEN_SEMESTERS, DIVISIONS, REQUESTED_COURSES, DESIGNATION_MAX_HOURS
 import otp as otp_module
 
 # ── Auth Blueprint ────────────────────────────────────────────────────────────
@@ -84,6 +82,14 @@ def logout():
 # ── Main Blueprint ────────────────────────────────────────────────────────────
 main = Blueprint('main', __name__)
 
+@main.route('/documentation/')
+def documentation():
+    return send_from_directory(current_app.config['ATSS_DOC_DIR'], 'index.html')
+
+@main.route('/documentation/<path:filename>')
+def documentation_asset(filename):
+    return send_from_directory(current_app.config['ATSS_DOC_DIR'], filename)
+
 @main.route('/')
 def index():
     return redirect(url_for('auth.login'))
@@ -114,12 +120,13 @@ def faculty_list():
 @faculty_bp.route('/faculty/add', methods=['POST'])
 @login_required
 def faculty_add():
+    designation = request.form['designation']
     db.session.add(Faculty(
         name        = request.form['name'],
-        designation = request.form['designation'],
+        designation = designation,
         department  = request.form['department'],
         shift       = request.form['shift'],
-        max_hours   = int(request.form.get('max_hours', 18)),
+        max_hours   = DESIGNATION_MAX_HOURS.get(designation, int(request.form.get('max_hours', 18))),
         email       = request.form.get('email', ''),
     ))
     db.session.commit()
@@ -145,7 +152,7 @@ def faculty_template():
     headers = [
         'faculty_id', 'faculty_name', 'designation', 'department', 'shift',
         'max_hours', 'email', 'subject_name', 'course', 'semester',
-        'type', 'lecture_hours', 'lab_hours', 'division', 'students'
+        'type', 'lecture_hours', 'lab_hours', 'students'
     ]
     hdr_fill = PatternFill('solid', fgColor='FF9000')
     for col, h in enumerate(headers, 1):
@@ -154,12 +161,38 @@ def faculty_template():
         cell.fill = hdr_fill
         cell.alignment = Alignment(horizontal='center')
         ws.column_dimensions[cell.column_letter].width = max(len(h) + 4, 14)
-    # Two sample rows
     samples = [
-        ['FAC-1001', 'Dr. A. Sharma', 'Associate Professor', 'IT', 'Morning', 14,
-         'sharma@college.edu', 'Data Structures', 'B.Tech', 3, 'Theory', 3, 0, 'A', 60],
-        ['FAC-1002', 'Prof. B. Mehta', 'Regular Faculty', 'IT', 'General', 18,
-         'mehta@college.edu', 'DBMS Lab', 'B.Tech', 4, 'Lab', 0, 2, 'B', 60],
+        # VP — General, Theory
+        ['FAC-1001', 'Dr. V. Principal',  'Vice Principal',      'Computer Science', 'General',  6,
+         'vp@college.edu',        'Research Methodology', 'MCA',         1, 'Theory', 3, 0, 40],
+        # HOD — General, Theory + Lab
+        ['FAC-1002', 'Dr. A. Kumar',      'HOD',                 'Computer Science', 'General', 12,
+         'hod1@college.edu',      'Data Structures',      'BSc IT',      1, 'Theory', 3, 0, 60],
+        ['FAC-1002', 'Dr. A. Kumar',      'HOD',                 'Computer Science', 'General', 12,
+         'hod1@college.edu',      'Data Structures Lab',  'BSc IT',      1, 'Lab',    0, 2, 60],
+        # Associate Professor — General, Theory + Lab
+        ['FAC-1006', 'Dr. E. Mehta',      'Associate Professor', 'Information Technology', 'General', 14,
+         'ap1@college.edu',       'DBMS',                 'BCA',         3, 'Theory', 3, 0, 60],
+        ['FAC-1006', 'Dr. E. Mehta',      'Associate Professor', 'Information Technology', 'General', 14,
+         'ap1@college.edu',       'DBMS Lab',             'BCA',         3, 'Lab',    0, 2, 60],
+        # Regular — General, various courses
+        ['FAC-1011', 'Prof. Amit Sharma', 'Regular Faculty',     'Computer Science', 'General', 18,
+         'fac11@college.edu',     'Discrete Mathematics', 'BSc IT Hons', 1, 'Theory', 3, 0, 60],
+        ['FAC-1012', 'Prof. Priya Verma', 'Regular Faculty',     'Information Technology', 'General', 18,
+         'fac12@college.edu',     'Mathematics I',        'BCA Hons',    1, 'Theory', 3, 0, 60],
+        ['FAC-1013', 'Prof. Rahul Gupta', 'Regular Faculty',     'Computer Science', 'General', 18,
+         'fac13@college.edu',     'Mathematics I',        'IMCA',        1, 'Theory', 3, 0, 60],
+        # Regular — Morning, PG courses
+        ['FAC-1015', 'Prof. Vijay Patel', 'Regular Faculty',     'Information Technology', 'Morning', 18,
+         'fac15@college.edu',     'Advanced Algorithms',  'MCA',         1, 'Theory', 3, 0, 40],
+        ['FAC-1016', 'Prof. Anita Mehta', 'Regular Faculty',     'Computer Science', 'Morning', 18,
+         'fac16@college.edu',     'Advanced Algorithms',  'MCA NEP',     1, 'Theory', 3, 0, 40],
+        ['FAC-1017', 'Prof. Suresh Joshi','Regular Faculty',     'Information Technology', 'Morning', 18,
+         'fac17@college.edu',     'Advanced Mathematics', 'MSc IT',      1, 'Theory', 3, 0, 40],
+        ['FAC-1018', 'Prof. Kavita Rao',  'Regular Faculty',     'Computer Science', 'Morning', 18,
+         'fac18@college.edu',     'Advanced Mathematics', 'MSc IT NEP',  1, 'Theory', 3, 0, 40],
+        ['FAC-1015', 'Prof. Vijay Patel', 'Regular Faculty',     'Information Technology', 'Morning', 18,
+         'fac15@college.edu',     'Advanced Algorithms Lab', 'MCA',      1, 'Lab',    0, 2, 40],
     ]
     for row in samples:
         ws.append(row)
@@ -174,13 +207,13 @@ def faculty_template():
 @login_required
 def faculty_import():
     from importer import import_faculty_excel
+    import io
     f = request.files.get('excel')
-    if not f:
+    if not f or not f.filename:
         flash('No file selected.', 'error')
         return redirect(url_for('faculty_bp.faculty_list'))
-    path = os.path.join('data', secure_filename(f.filename))
-    f.save(path)
-    added = import_faculty_excel(path)
+    buf = io.BytesIO(f.read())
+    added = import_faculty_excel(buf)
     flash(f'Imported {added} faculty records.', 'success')
     return redirect(url_for('faculty_bp.faculty_list'))
 
@@ -197,10 +230,12 @@ def subject_list():
 @subject_bp.route('/subjects/add', methods=['POST'])
 @login_required
 def subject_add():
+    sem = int(request.form.get('semester', 1))
     db.session.add(Subject(
         subject_name  = request.form['subject_name'],
         course        = request.form['course'],
-        semester      = int(request.form['semester']),
+        semester      = sem,
+        session_type  = 'Odd' if sem in ODD_SEMESTERS else 'Even',
         type          = request.form['type'],
         lecture_hours = int(request.form.get('lecture_hours', 0)),
         lab_hours     = int(request.form.get('lab_hours', 0)),
@@ -258,11 +293,12 @@ def timetable_view():
     entries    = Timetable.query.all()
     divisions  = Division.query.order_by(Division.course, Division.semester, Division.division).all()
     faculty    = Faculty.query.order_by(Faculty.name).all()
+    courses    = sorted({d.course for d in divisions if d.course})
     sel_div    = request.args.get('division_id', type=int)
     sel_fac    = request.args.get('faculty_id',  type=int)
     sel_session = request.args.get('session_type', '')   # 'Odd' | 'Even' | ''
 
-    if sel_session:
+    if sel_session in ('Odd', 'Even'):
         sems = ODD_SEMESTERS if sel_session == 'Odd' else EVEN_SEMESTERS
         entries = [e for e in entries if e.division and e.division.semester in sems]
     if sel_div:
@@ -273,7 +309,7 @@ def timetable_view():
     return render_template('timetable.html',
                            entries=entries, days=DAYS,
                            morning_slots=MORNING_SLOTS, general_slots=GENERAL_SLOTS,
-                           divisions=divisions, faculty=faculty,
+                           divisions=divisions, faculty=faculty, courses=courses,
                            sel_div=sel_div, sel_fac=sel_fac,
                            sel_session=sel_session, session_types=SESSION_TYPES)
 
@@ -281,44 +317,110 @@ def timetable_view():
 @login_required
 def timetable_generate():
     from scheduler import generate_timetable
-    session_type = request.form.get('session_type', '')   # 'Odd' | 'Even' | ''
+    session_type = request.form.get('session_type', '').strip()   # 'Odd' | 'Even'
 
-    # Clear unlocked entries for the selected session (or all if none selected)
-    if session_type:
-        sems = ODD_SEMESTERS if session_type == 'Odd' else EVEN_SEMESTERS
-        locked_ids = {e.id for e in Timetable.query.filter_by(locked=True).all()}
-        to_delete = [
-            e for e in Timetable.query.filter_by(locked=False).all()
-            if e.division and e.division.semester in sems
-        ]
-        for e in to_delete:
-            db.session.delete(e)
-    else:
-        Timetable.query.filter_by(locked=False).delete()
+    # Must be exactly Odd or Even — no blank/all allowed
+    if session_type not in ('Odd', 'Even'):
+        flash('Please select a session (Odd or Even) before generating.', 'error')
+        return redirect(url_for('tt_bp.timetable_view'))
+
+    sems = ODD_SEMESTERS if session_type == 'Odd' else EVEN_SEMESTERS
+
+    # Clear only unlocked entries for this session
+    to_delete = [
+        e for e in Timetable.query.filter_by(locked=False).all()
+        if e.division and e.division.semester in sems
+    ]
+    for e in to_delete:
+        db.session.delete(e)
     db.session.commit()
 
+    all_divisions = Division.query.all()
+    session_divisions = [
+        d for d in all_divisions
+        if d.semester in sems and d.course in REQUESTED_COURSES
+    ]
+    present_courses = {d.course for d in session_divisions if d.course in REQUESTED_COURSES}
+    missing_courses = [course for course in REQUESTED_COURSES if course not in present_courses]
+    missing_divisions = []
+    course_semesters = {(d.course, d.semester) for d in session_divisions}
+    for course, semester in sorted(course_semesters):
+        expected = ['A'] if course == 'IMCA' else DIVISIONS
+        course_sem_divisions = {
+            d.division for d in session_divisions
+            if d.course == course and d.semester == semester
+        }
+        missing = [name for name in expected if name not in course_sem_divisions]
+        if missing:
+            missing_divisions.append(
+                f'{course} Sem{semester}: {", ".join(missing)}'
+            )
+
     allocations  = Allocation.query.all()
+    allocated_division_ids = {a.division_id for a in allocations}
+    missing_allocations = [
+        f'{d.course} Sem{d.semester} {d.division}'
+        for d in session_divisions
+        if d.course in REQUESTED_COURSES and d.id not in allocated_division_ids
+    ]
     faculty_map  = {f.id: f for f in Faculty.query.all()}
     subject_map  = {s.id: s for s in Subject.query.all()}
-    division_map = {d.id: d for d in Division.query.all()}
+    division_map = {d.id: d for d in session_divisions}
     room_list    = Room.query.all()
 
-    # Filter allocations to selected session only
-    if session_type:
-        sems = ODD_SEMESTERS if session_type == 'Odd' else EVEN_SEMESTERS
-        allocations = [a for a in allocations if division_map[a.division_id].semester in sems]
+    # Only schedule allocations for the selected session. Some allocations
+    # belong to the other session and therefore are intentionally absent from
+    # division_map.
+    available_allocations = [
+        a for a in allocations
+        if a.division_id in division_map
+    ]
+    ignored_allocations = len(allocations) - len(available_allocations)
+    allocations = available_allocations
 
-    entries = generate_timetable(allocations, faculty_map, subject_map, division_map, room_list)
+    entries, shortages = generate_timetable(
+        allocations, faculty_map, subject_map, division_map, room_list,
+        return_diagnostics=True,
+    )
     for e in entries:
         db.session.add(Timetable(**e))
     db.session.commit()
-    flash(f'Timetable generated ({session_type or "All"} session) — {len(entries)} entries.', 'success')
+    if ignored_allocations:
+        flash(
+            f'Data notice — {ignored_allocations} allocations belong to the other session '
+            'or have no matching division and were skipped.',
+            'warning',
+        )
+    if missing_courses or missing_divisions or missing_allocations:
+        details = []
+        if missing_courses:
+            details.append(f'missing courses: {", ".join(missing_courses)}')
+        if missing_divisions:
+            details.append(f'missing divisions: {", ".join(missing_divisions[:5])}')
+            if len(missing_divisions) > 5:
+                details.append(f'and {len(missing_divisions) - 5} more')
+        if missing_allocations:
+            details.append(f'missing allocations: {", ".join(missing_allocations[:5])}')
+            if len(missing_allocations) > 5:
+                details.append(f'and {len(missing_allocations) - 5} more')
+        flash('Data notice — ' + '; '.join(details) + '. Generated using available data.', 'warning')
+    if shortages:
+        details = [
+            f'{item["course"]} Sem{item["semester"]} {item["division"]} '
+            f'{item["subject"]}: {item["placed"]}/{item["required"]} hours'
+            for item in shortages[:5]
+        ]
+        extra = f' and {len(shortages) - 5} more' if len(shortages) > 5 else ''
+        flash('Scheduling notice — ' + '; '.join(details) + extra + '.', 'warning')
+    flash(f'{session_type} Semester timetable generated — {len(entries)} entries.', 'success')
     return redirect(url_for('tt_bp.timetable_view', session_type=session_type))
 
 @tt_bp.route('/timetable/lock/<int:eid>', methods=['POST'])
 @login_required
 def timetable_lock(eid):
-    entry = Timetable.query.get_or_404(eid)
+    entry = db.session.get(Timetable, eid)
+    if entry is None:
+        return jsonify({'error': 'not found'}), 404
     entry.locked = not entry.locked
     db.session.commit()
     return jsonify({'locked': entry.locked})

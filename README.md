@@ -315,8 +315,11 @@ Admin logs out → GET /logout
 - **Files:** `routes.py` (tt_bp), `scheduler.py`, `constraints.py`
 - **Endpoint:** `POST /timetable/generate`
 - **DB Tables:** `timetable`, `allocation`, `faculty`, `subject`, `division`, `room`
-- **Inputs:** optional `session_type` (Odd/Even/blank)
-- **Process:** Clears unlocked entries for selected session → builds CP-SAT model → solves → greedy room assignment → bulk insert
+- **Inputs:** required `session_type` (Odd or Even)
+- **Process:** Clears unlocked entries for selected session → schedules available allocations → saves generated entries
+- **Incomplete input:** Missing courses or divisions are reported, but generation continues with the available data.
+- **Scheduling shortages:** Unplaced subject hours are reported after generation; available entries are still saved.
+- **Daily timetable:** Each division has six slots: four working lecture/lab slots, one Self Study slot, and remaining slots as Free Lecture or supplied additional subjects. Working slots prefer three Theory and one Lab; missing types are replaced with available data.
 - **Timeout:** 60 seconds. Returns empty list if no solution found.
 
 ### 7.6 Timetable View + Filter

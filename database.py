@@ -1,6 +1,5 @@
 from extensions import db
 from models import Room
-from config import DAYS, MORNING_SLOTS, GENERAL_SLOTS
 
 
 def init_db(app):

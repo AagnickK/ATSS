@@ -18,9 +18,8 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <select name="session_type" id="gen-session"
                     class="bg-stone-50 dark:bg-zinc-800 border border-stone-200 dark:border-zinc-700 text-zinc-900 dark:text-white text-sm px-3 py-2 focus:outline-none transition-colors" style="--tw-ring-color:#FF9000" onfocus="this.style.borderColor='#FF9000'" onblur="this.style.borderColor=''">
-                    <option value="">All Sessions</option>
                     {% for st in session_types %}
-                    <option value="{{ st }}">{{ st }} Sem ({{ '1,3,5,7' if st == 'Odd' else '2,4,6' }})</option>
+                    <option value="{{ st }}" {% if sel_session == st %}selected{% endif %}>{{ st }} Semester ({{ '1,3,5,7' if st == 'Odd' else '2,4,6' }})</option>
                     {% endfor %}
                 </select>
                 <button type="submit" onclick="return confirm('Regenerate timetable? Unlocked entries will be cleared.')"
@@ -36,7 +35,7 @@
     {% set lbl = "block text-xs font-semibold text-stone-400 dark:text-zinc-500 uppercase tracking-wider mb-1" %}
     <div class="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 p-5">
         <p class="text-xs font-semibold text-stone-400 dark:text-zinc-500 uppercase tracking-wider mb-4">Filters</p>
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
 
             <div class="lg:col-span-2">
                 <label class="{{ lbl }}">Search</label>
@@ -72,13 +71,31 @@
             </div>
 
             <div>
+                <label class="{{ lbl }}">Course</label>
+                <select id="f-course" class="{{ inp }}">
+                    <option value="">All</option>
+                    {% for c in courses %}
+                    <option value="{{ c }}">{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
                 <label class="{{ lbl }}">Division</label>
                 <select id="f-division" class="{{ inp }}">
                     <option value="">All</option>
-                    {% for d in divisions %}
-                    <option value="{{ d.id }}" {% if sel_div == d.id %}selected{% endif %}>
-                        {{ d.course }} S{{ d.semester }} {{ d.division }}
-                    </option>
+                    {% for div in ['A','B','C','D','E','F','G','H','I'] %}
+                    <option value="{{ div }}">{{ div }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="{{ lbl }}">Sem</label>
+                <select id="f-sem" class="{{ inp }}">
+                    <option value="">All</option>
+                    {% for s in [1,2,3,4,5,6,7] %}
+                    <option value="{{ s }}">{{ s }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -99,6 +116,7 @@
                     <option value="">All</option>
                     <option value="Theory">Theory</option>
                     <option value="Lab">Lab</option>
+                    <option value="Free">Free Lecture</option>
                 </select>
             </div>
 
@@ -107,6 +125,7 @@
             <span id="result-count" class="text-xs text-stone-400 dark:text-zinc-500"></span>
             <button onclick="clearFilters()" class="text-xs underline" style="color:#FF9000">Clear filters</button>
         </div>
+        <p class="text-xs text-stone-300 dark:text-zinc-700 mt-2">Division = A–I &nbsp;·&nbsp; Sem = 1–7 (Odd: 1,3,5,7 · Even: 2,4,6)</p>
     </div>
 
     {# ── Table ── #}
@@ -114,28 +133,31 @@
         <div class="overflow-x-auto">
             <table class="w-full text-sm" id="tt-table">
                 <thead>
-                    <tr class="border-b border-stone-200 dark:border-zinc-800 text-xs text-stone-400 dark:text-zinc-500 uppercase tracking-wider">
-                        <th class="px-5 py-3 text-left cursor-pointer select-none tt-sort-th" onclick="sortTable(0)">Day <span class="sort-icon">↕</span></th>
-                        <th class="px-5 py-3 text-left cursor-pointer select-none tt-sort-th" onclick="sortTable(1)">Slot <span class="sort-icon">↕</span></th>
-                        <th class="px-5 py-3 text-left cursor-pointer select-none tt-sort-th" onclick="sortTable(2)">Faculty <span class="sort-icon">↕</span></th>
-                        <th class="px-5 py-3 text-left cursor-pointer select-none tt-sort-th" onclick="sortTable(3)">Subject <span class="sort-icon">↕</span></th>
-                        <th class="px-5 py-3 text-left cursor-pointer select-none tt-sort-th" onclick="sortTable(4)">Division <span class="sort-icon">↕</span></th>
-                        <th class="px-5 py-3 text-left cursor-pointer select-none tt-sort-th" onclick="sortTable(5)">Room <span class="sort-icon">↕</span></th>
-                        <th class="px-5 py-3 text-left">Batch</th>
-                        <th class="px-5 py-3 text-left">Type</th>
-                        <th class="px-5 py-3 text-left">Sem</th>
-                        <th class="px-5 py-3 text-left">Lock</th>
+                    <tr class="border-b-2 border-stone-200 dark:border-zinc-700 bg-stone-50 dark:bg-zinc-800/60 text-xs text-stone-500 dark:text-zinc-400 uppercase tracking-wider">
+                        <th class="px-4 py-3 text-left cursor-pointer select-none tt-sort-th whitespace-nowrap" onclick="sortTable(0)">Day <span class="sort-icon">↕</span></th>
+                        <th class="px-4 py-3 text-left cursor-pointer select-none tt-sort-th whitespace-nowrap" onclick="sortTable(1)">Slot <span class="sort-icon">↕</span></th>
+                        <th class="px-4 py-3 text-left cursor-pointer select-none tt-sort-th whitespace-nowrap" onclick="sortTable(2)">Faculty <span class="sort-icon">↕</span></th>
+                        <th class="px-4 py-3 text-left cursor-pointer select-none tt-sort-th whitespace-nowrap" onclick="sortTable(3)">Subject <span class="sort-icon">↕</span></th>
+                        <th class="px-4 py-3 text-left cursor-pointer select-none tt-sort-th whitespace-nowrap" onclick="sortTable(4)">Course <span class="sort-icon">↕</span></th>
+                        <th class="px-4 py-3 text-left cursor-pointer select-none tt-sort-th whitespace-nowrap" onclick="sortTable(5)">Sem <span class="sort-icon">↕</span></th>
+                        <th class="px-4 py-3 text-left cursor-pointer select-none tt-sort-th whitespace-nowrap" onclick="sortTable(6)">Div <span class="sort-icon">↕</span></th>
+                        <th class="px-4 py-3 text-left cursor-pointer select-none tt-sort-th whitespace-nowrap" onclick="sortTable(7)">Room <span class="sort-icon">↕</span></th>
+                        <th class="px-4 py-3 text-left whitespace-nowrap">Batch</th>
+                        <th class="px-4 py-3 text-left whitespace-nowrap">Type</th>
+                        <th class="px-4 py-3 text-left whitespace-nowrap">Lock</th>
                     </tr>
                 </thead>
                 <tbody id="tt-body" class="divide-y divide-stone-100 dark:divide-zinc-800">
                 {% for e in entries %}
-                <tr class="tt-row hover:bg-stone-50 dark:hover:bg-zinc-800/60 transition-colors {{ 'opacity-50' if e.locked else '' }}"
+                <tr class="tt-row hover:bg-stone-50 dark:hover:bg-zinc-800/50 transition-colors {{ 'opacity-40' if e.locked else '' }}"
                     data-day="{{ e.day }}"
                     data-slot="{{ e.slot }}"
                     data-faculty-id="{{ e.faculty_id or '' }}"
-                    data-division-id="{{ e.division_id or '' }}"
+                    data-course="{{ e.division.course if e.division else '' }}"
+                    data-division="{{ e.division.division | upper if e.division else '' }}"
+                    data-sem="{{ e.division.semester if e.division else '' }}"
                     data-session="{{ e.division.session_type if e.division else '' }}"
-                    data-type="{{ e.subject.type if e.subject else '' }}"
+                    data-type="{{ e.subject.type if e.subject else ('Free' if e.batch == 'Free Lecture' else '') }}"
                     data-search="{{ [
                         e.faculty.name if e.faculty else '',
                         e.subject.subject_name if e.subject else '',
@@ -143,23 +165,38 @@
                         e.division.course if e.division else '',
                         e.batch or ''
                     ] | join(' ') | lower }}">
-                    <td class="px-5 py-3 text-zinc-600 dark:text-zinc-300">{{ e.day }}</td>
-                    <td class="px-5 py-3 text-stone-400 dark:text-zinc-500 font-mono">{{ e.slot }}</td>
-                    <td class="px-5 py-3 text-zinc-900 dark:text-white">{{ e.faculty.name if e.faculty else '—' }}</td>
-                    <td class="px-5 py-3 text-zinc-600 dark:text-zinc-300">{{ e.subject.subject_name if e.subject else '—' }}</td>
-                    <td class="px-5 py-3 text-zinc-600 dark:text-zinc-300">{{ e.division.course ~ ' S' ~ e.division.semester ~ ' ' ~ e.division.division if e.division else '—' }}</td>
-                    <td class="px-5 py-3 text-zinc-600 dark:text-zinc-300">{{ e.room.room_no if e.room else '—' }}</td>
-                    <td class="px-5 py-3 text-stone-400 dark:text-zinc-500">{{ e.batch or '—' }}</td>
-                    <td class="px-5 py-3">
-                        {% if e.subject %}
-                        <span class="text-xs px-2 py-0.5 font-semibold {{ 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' if e.subject.type == 'Theory' else 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' }}">
-                            {{ e.subject.type }}
-                        </span>
+                    <td class="px-4 py-3 text-zinc-700 dark:text-zinc-300 font-medium whitespace-nowrap">{{ e.day }}</td>
+                    <td class="px-4 py-3 font-mono text-sm" style="color:#FF9000">{{ e.slot }}</td>
+                    <td class="px-4 py-3 text-zinc-900 dark:text-white font-medium">{{ e.faculty.name if e.faculty else ('—' if e.batch != 'Free Lecture' else '') }}</td>
+                    <td class="px-4 py-3 text-zinc-600 dark:text-zinc-300">{{ e.subject.subject_name if e.subject else ('—' if e.batch != 'Free Lecture' else '') }}</td>
+                    <td class="px-4 py-3 text-zinc-500 dark:text-zinc-400 text-xs font-medium">{{ e.division.course if e.division else '—' }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if e.division %}
+                        <span class="inline-block text-xs font-bold px-2 py-0.5 rounded bg-stone-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">{{ e.division.semester }}</span>
                         {% else %}—{% endif %}
                     </td>
-                    <td class="px-5 py-3 text-stone-400 dark:text-zinc-500">{{ e.division.semester if e.division else '—' }}</td>
-                    <td class="px-5 py-3">
-                        <button class="lock-btn text-base leading-none" data-id="{{ e.id }}">{{ '🔒' if e.locked else '🔓' }}</button>
+                    <td class="px-4 py-3 text-center">
+                        {% if e.division %}
+                        <span class="inline-block text-xs font-bold px-2 py-0.5 rounded" style="background:#FF9000;color:#18181b">{{ e.division.division | upper }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-zinc-500 dark:text-zinc-400 font-mono text-xs">{{ e.room.room_no if e.room else '—' }}</td>
+                    <td class="px-4 py-3 text-xs">
+                        {% if e.batch == 'Free Lecture' %}
+                        <span class="inline-block px-2 py-0.5 font-semibold rounded-sm bg-stone-100 dark:bg-zinc-700 text-stone-400 dark:text-zinc-500">Free Lecture</span>
+                        {% else %}{{ e.batch or '—' }}{% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if e.subject %}
+                        <span class="text-xs px-2 py-0.5 font-semibold rounded-sm {{ 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' if e.subject.type == 'Theory' else 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' }}">
+                            {{ e.subject.type }}
+                        </span>
+                        {% elif e.batch == 'Free Lecture' %}
+                        <span class="text-xs px-2 py-0.5 font-semibold rounded-sm bg-stone-100 dark:bg-zinc-700 text-stone-400 dark:text-zinc-500">Free</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <button class="lock-btn text-base leading-none transition-opacity hover:opacity-70" data-id="{{ e.id }}">{{ '🔒' if e.locked else '🔓' }}</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -173,14 +210,28 @@
         </div>
     </div>
 
-    {# ── Pagination ── #}
-    <div id="pagination-bar" class="flex items-center justify-between gap-4 flex-wrap">
-        <div class="text-sm text-stone-400 dark:text-zinc-500">
-            Showing <span id="pg-from" class="font-semibold text-zinc-900 dark:text-white">—</span>
-            – <span id="pg-to" class="font-semibold text-zinc-900 dark:text-white">—</span>
-            of <span id="pg-total" class="font-semibold text-zinc-900 dark:text-white">—</span> entries
+    {# ── Pagination Bar ── #}
+    <div id="pagination-bar" class="bg-zinc-950 border border-zinc-800 rounded-xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
+
+        {# Left: entry info #}
+        <div class="flex items-center gap-3 text-sm">
+            <span class="text-zinc-500">Page</span>
+            <span id="pg-current" class="font-bold text-white">—</span>
+            <span class="text-zinc-600">of</span>
+            <span id="pg-pages" class="font-bold text-white">—</span>
+            <span class="w-px h-4 bg-zinc-700 mx-1"></span>
+            <span class="text-zinc-500">Showing</span>
+            <span id="pg-from" class="font-semibold" style="color:#FF9000">—</span>
+            <span class="text-zinc-600">–</span>
+            <span id="pg-to" class="font-semibold" style="color:#FF9000">—</span>
+            <span class="text-zinc-500">of</span>
+            <span id="pg-total" class="font-bold text-white">—</span>
+            <span class="text-zinc-500">entries</span>
         </div>
-        <div id="pg-controls" class="flex items-center gap-2 bg-black p-3 rounded-xl"></div>
+
+        {# Right: buttons #}
+        <div id="pg-controls" class="flex items-center gap-1"></div>
+
     </div>
 
 </div>
@@ -203,7 +254,9 @@ function getFilters() {
         session:  document.getElementById('f-session').value,
         day:      document.getElementById('f-day').value,
         slot:     document.getElementById('f-slot').value,
+        course:   document.getElementById('f-course').value,
         division: document.getElementById('f-division').value,
+        sem:      document.getElementById('f-sem').value,
         faculty:  document.getElementById('f-faculty').value,
         type:     document.getElementById('f-type').value,
     };
@@ -212,13 +265,15 @@ function getFilters() {
 function applyFilters() {
     const f = getFilters();
     filteredRows = allRows().filter(r => {
-        if (f.search   && !r.dataset.search.includes(f.search))         return false;
-        if (f.session  && r.dataset.session  !== f.session)             return false;
-        if (f.day      && r.dataset.day      !== f.day)                 return false;
-        if (f.slot     && r.dataset.slot     !== f.slot)                return false;
-        if (f.division && r.dataset.divisionId !== f.division)          return false;
-        if (f.faculty  && r.dataset.facultyId  !== f.faculty)           return false;
-        if (f.type     && r.dataset.type     !== f.type)                return false;
+        if (f.search   && !r.dataset.search.includes(f.search))   return false;
+        if (f.session  && r.dataset.session  !== f.session)       return false;
+        if (f.day      && r.dataset.day      !== f.day)           return false;
+        if (f.slot     && r.dataset.slot     !== f.slot)          return false;
+        if (f.course   && r.dataset.course   !== f.course)        return false;
+        if (f.division && r.dataset.division !== f.division)      return false;
+        if (f.sem      && r.dataset.sem      !== f.sem)           return false;
+        if (f.faculty  && r.dataset.facultyId !== f.faculty)      return false;
+        if (f.type     && r.dataset.type     !== f.type)          return false;
         return true;
     });
     currentPage = 1;
@@ -244,99 +299,101 @@ function sortTable(col) {
 }
 
 function render() {
-    const total = filteredRows.length;
+    const total      = filteredRows.length;
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    currentPage = Math.min(currentPage, totalPages);
+    currentPage      = Math.min(Math.max(1, currentPage), totalPages);
 
     const start = (currentPage - 1) * PAGE_SIZE;
     const end   = Math.min(start + PAGE_SIZE, total);
 
-    // hide all, show page slice
+    // show/hide rows
     allRows().forEach(r => r.classList.add('hidden'));
-    filteredRows.forEach((r, i) => {
-        if (i >= start && i < end) r.classList.remove('hidden');
-    });
+    filteredRows.forEach((r, i) => { if (i >= start && i < end) r.classList.remove('hidden'); });
 
     // empty state
     document.getElementById('empty-state').classList.toggle('hidden', total > 0);
 
-    // counters
-    document.getElementById('pg-from').textContent  = total ? start + 1 : 0;
-    document.getElementById('pg-to').textContent    = end;
-    document.getElementById('pg-total').textContent = total;
+    // info labels
+    document.getElementById('pg-current').textContent = currentPage;
+    document.getElementById('pg-pages').textContent   = totalPages;
+    document.getElementById('pg-from').textContent    = total ? start + 1 : 0;
+    document.getElementById('pg-to').textContent      = end;
+    document.getElementById('pg-total').textContent   = total;
     document.getElementById('result-count').textContent = total + ' result' + (total !== 1 ? 's' : '');
 
-    // pagination buttons
+    // ── build button bar ────────────────────────────────────────────────────
     const ctrl = document.getElementById('pg-controls');
     ctrl.innerHTML = '';
 
-    function mkBtn(label, page, type, disabled) {
+    // helper: create one button
+    function mkBtn(label, targetPage, isActive, isDisabled, isEllipsis) {
         const b = document.createElement('button');
         b.textContent = label;
-        b.disabled = disabled;
-        if (type === 'nav') {
-            // Prev / Next style
-            b.className = 'px-5 py-3 rounded-lg font-semibold text-sm transition-colors';
-            if (disabled) {
-                b.style.cssText = 'background:#18181b;color:#71717a;cursor:not-allowed';
-            } else if (label === 'Next') {
-                b.style.cssText = 'background:#FF9000;color:#000;font-weight:700';
-                b.onmouseover = () => b.style.background = '#e68200';
-                b.onmouseout  = () => b.style.background = '#FF9000';
-            } else {
-                b.style.cssText = 'background:#27272a;color:#fff';
-                b.onmouseover = () => b.style.background = '#3f3f46';
-                b.onmouseout  = () => b.style.background = '#27272a';
-            }
-        } else if (type === 'active') {
-            b.className = 'px-4 py-3 rounded-lg font-semibold text-sm';
-            b.style.cssText = 'background:#FF9000;color:#000;font-weight:700';
-        } else if (type === 'ellipsis') {
-            b.className = 'px-2 py-3 text-zinc-500 text-sm font-semibold cursor-default';
-            b.disabled = true;
+        b.disabled    = isDisabled || isEllipsis;
+        b.style.cssText = [
+            'min-width:2.25rem', 'height:2.25rem', 'padding:0 .6rem',
+            'border-radius:.5rem', 'font-size:.8125rem', 'font-weight:600',
+            'border:none', 'cursor:pointer', 'transition:background .15s,color .15s',
+            'display:inline-flex', 'align-items:center', 'justify-content:center',
+        ].join(';');
+
+        if (isEllipsis) {
+            b.style.background = 'transparent';
+            b.style.color      = '#71717a';
+            b.style.cursor     = 'default';
+        } else if (isActive) {
+            b.style.background = '#FF9000';
+            b.style.color      = '#000';
+        } else if (isDisabled) {
+            b.style.background = '#18181b';
+            b.style.color      = '#52525b';
+            b.style.cursor     = 'not-allowed';
         } else {
-            // normal page
-            b.className = 'px-4 py-3 rounded-lg font-semibold text-sm transition-colors';
-            b.style.cssText = 'background:#27272a;color:#fff';
-            b.onmouseover = () => b.style.background = '#3f3f46';
-            b.onmouseout  = () => b.style.background = '#27272a';
+            b.style.background = '#27272a';
+            b.style.color      = '#e4e4e7';
+            b.onmouseover = () => { b.style.background = '#3f3f46'; b.style.color = '#fff'; };
+            b.onmouseout  = () => { b.style.background = '#27272a'; b.style.color = '#e4e4e7'; };
+            b.onclick = () => { currentPage = targetPage; render(); };
         }
-        if (!disabled && type !== 'ellipsis') b.onclick = () => { currentPage = page; render(); };
         return b;
     }
 
-    ctrl.appendChild(mkBtn('Prev', currentPage - 1, 'nav', currentPage === 1));
+    // ‹ First  Prev
+    ctrl.appendChild(mkBtn('«', 1,               false, currentPage === 1,           false));
+    ctrl.appendChild(mkBtn('‹', currentPage - 1, false, currentPage === 1,           false));
 
-    // window of pages
+    // page window: always show 5 numbers centred on currentPage
     let lo = Math.max(1, currentPage - 2);
     let hi = Math.min(totalPages, lo + 4);
-    lo = Math.max(1, hi - 4);
+    lo     = Math.max(1, hi - 4);
 
     if (lo > 1) {
-        ctrl.appendChild(mkBtn('1', 1, '1' == currentPage ? 'active' : 'page', false));
-        if (lo > 2) ctrl.appendChild(mkBtn('…', null, 'ellipsis', true));
+        ctrl.appendChild(mkBtn('1', 1, false, false, false));
+        if (lo > 2) ctrl.appendChild(mkBtn('…', null, false, false, true));
     }
     for (let p = lo; p <= hi; p++) {
-        ctrl.appendChild(mkBtn(p, p, p === currentPage ? 'active' : 'page', false));
+        ctrl.appendChild(mkBtn(String(p), p, p === currentPage, false, false));
     }
     if (hi < totalPages) {
-        if (hi < totalPages - 1) ctrl.appendChild(mkBtn('…', null, 'ellipsis', true));
-        ctrl.appendChild(mkBtn(totalPages, totalPages, totalPages === currentPage ? 'active' : 'page', false));
+        if (hi < totalPages - 1) ctrl.appendChild(mkBtn('…', null, false, false, true));
+        ctrl.appendChild(mkBtn(String(totalPages), totalPages, false, false, false));
     }
 
-    ctrl.appendChild(mkBtn('Next', currentPage + 1, 'nav', currentPage === totalPages));
+    // Next  Last ›
+    ctrl.appendChild(mkBtn('›', currentPage + 1, false, currentPage === totalPages, false));
+    ctrl.appendChild(mkBtn('»', totalPages,       false, currentPage === totalPages, false));
 }
 
 function clearFilters() {
-    ['f-search','f-session','f-day','f-slot','f-division','f-faculty','f-type']
-        .forEach(id => { const el = document.getElementById(id); el.tagName === 'INPUT' ? el.value = '' : el.value = ''; });
+    ['f-search','f-session','f-day','f-slot','f-course','f-division','f-sem','f-faculty','f-type']
+        .forEach(id => { document.getElementById(id).value = ''; });
     applyFilters();
 }
 
 // debounce search input
 let _t;
 document.getElementById('f-search').addEventListener('input', () => { clearTimeout(_t); _t = setTimeout(applyFilters, 200); });
-['f-session','f-day','f-slot','f-division','f-faculty','f-type']
+['f-session','f-day','f-slot','f-course','f-division','f-sem','f-faculty','f-type']
     .forEach(id => document.getElementById(id).addEventListener('change', applyFilters));
 
 // lock toggle (unchanged)

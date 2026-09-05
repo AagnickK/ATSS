@@ -1,0 +1,109 @@
+Attached Element Context from Integrated Browser
+
+Element: button#theme-toggle.w-full.flex.items-center.gap-3.px-5.py-2.5.text-sm.text-stone-500.dark:text-zinc-400.hover:text-zinc-900.dark:hover:text-white.hover:bg-stone-100.dark:hover:bg-zinc-800.border-l-2.border-transparent.transition-all
+
+URL: http://127.0.0.1:5000/login
+
+HTML Path: nav.w-52.shrink-0.bg-white.dark:bg-zinc-900.border-r.border-stone-200.dark:border-zinc-800.flex.flex-col.min-h-screen.fixed.top-0.left-0.z-20 > div.border-t.border-stone-200.dark:border-zinc-800 > button#theme-toggle.w-full.flex.items-center.gap-3.px-5.py-2.5.text-sm.text-stone-500.dark:text-zinc-400.hover:text-zinc-900.dark:hover:text-white.hover:bg-stone-100.dark:hover:bg-zinc-800.border-l-2.border-transparent.transition-all
+
+Outer HTML:
+```html
+<button id="theme-toggle" class="w-full flex items-center gap-3 px-5 py-2.5 text-sm text-stone-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-zinc-800 border-l-2 border-transparent transition-all" onmouseover="this.style.borderColor='#FF9000'" onmouseout="this.style.borderColor='transparent'" title="Toggle theme" style="border-color: rgb(255, 144, 0);">☀ Light</button>
+```
+
+Dimensions:
+- top: 371px
+- left: 0px
+- width: 194px
+- height: 38px
+
+CSS:
+```css
+element { border-color: rgb(255, 144, 0); }
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+*, ::before, ::after { --tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }
+*, ::after, ::before { box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb }
+button, input, optgroup, select, textarea { font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0 }
+button, select { text-transform:none }
+button, input:where([type=button]), input:where([type=reset]), input:where([type=submit]) { -webkit-appearance:button;background-color:transparent;background-image:none }
+[role=button], button { cursor:pointer }
+.flex { display:flex }
+.w-full { width:100% }
+.items-center { align-items:center }
+.gap-3 { gap:0.75rem }
+.border-l-2 { border-left-width:2px }
+.border-transparent { border-color:transparent }
+.px-5 { padding-left:1.25rem;padding-right:1.25rem }
+.py-2\.5 { padding-top:0.625rem;padding-bottom:0.625rem }
+.text-sm { font-size:0.875rem;line-height:1.25rem }
+.text-stone-500 { --tw-text-opacity:1;color:rgb(120 113 108 / var(--tw-text-opacity, 1)) }
+.transition-all { transition-property:all;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms }
+.hover\:bg-stone-100:hover { --tw-bg-opacity:1;background-color:rgb(245 245 244 / var(--tw-bg-opacity, 1)) }
+.hover\:text-zinc-900:hover { --tw-text-opacity:1;color:rgb(24 24 27 / var(--tw-text-opacity, 1)) }
+.dark\:text-zinc-400:is(.dark *) { --tw-text-opacity:1;color:rgb(161 161 170 / var(--tw-text-opacity, 1)) }
+.dark\:hover\:bg-zinc-800:hover:is(.dark *) { --tw-bg-opacity:1;background-color:rgb(39 39 42 / var(--tw-bg-opacity, 1)) }
+.dark\:hover\:text-white:hover:is(.dark *) { --tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1)) }
+
+/* Pseudo-elements */
+::after, ::before { --tw-content:'' }
+
+/* Inherited */
+html, body { color: var(--text) }
+body { font-family: Calibri, "Segoe UI", Arial, sans-serif }
+body { line-height:inherit }
+.font-mono { font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace }
+.text-zinc-900 { color:rgb(24 24 27 / var(--tw-text-opacity, 1)) }
+.dark\:text-zinc-100:is(.dark *) { color:rgb(244 244 245 / var(--tw-text-opacity, 1)) }
+html { font-size: 15px }
+:host, html { line-height:1.5; tab-size:4; font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; font-feature-settings:normal }
+
+/* Resolved values */
+margin: 0px;
+padding: 9.375px 18.75px;
+border-width: 0px 0px 0px 1.6px;
+border-style: solid;
+border-color: rgb(255, 144, 0);
+align-items: center;
+appearance: button;
+background-color: rgb(39, 39, 42);
+background-image: none;
+border-image-outset: 0 /*UA*/;
+border-image-repeat: stretch /*UA*/;
+border-image-slice: 100% /*UA*/;
+border-image-source: none /*UA*/;
+border-image-width: 1 /*UA*/;
+box-sizing: border-box;
+color: rgb(255, 255, 255);
+column-gap: 11.25px;
+cursor: pointer;
+display: flex;
+font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+font-feature-settings: normal;
+font-size: 13.125px;
+font-variation-settings: normal;
+font-weight: 400;
+height: 37.5px;
+letter-spacing: normal;
+line-height: 18.75px;
+padding-block-end: 9.375px /*UA*/;
+padding-block-start: 9.375px /*UA*/;
+padding-inline-end: 18.75px /*UA*/;
+padding-inline-start: 18.75px /*UA*/;
+row-gap: 11.25px;
+tab-size: 4;
+text-align: center /*UA*/;
+text-indent: 0px /*UA*/;
+text-rendering: auto /*UA*/;
+text-shadow: none /*UA*/;
+text-transform: none;
+transition-duration: 0.15s;
+transition-property: all;
+transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+width: 194.2px;
+word-spacing: 0px /*UA*/;
+
+/* CSS variables */
+--tw-text-opacity: 1;
+--tw-bg-opacity: 1;
+--text: #e2e2e2;
+```

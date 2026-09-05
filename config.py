@@ -36,3 +36,21 @@ ROOM_TYPES    = ['Classroom', 'Lab', 'Seminar']
 ODD_SEMESTERS  = [1, 3, 5, 7]
 EVEN_SEMESTERS = [2, 4, 6]
 SESSION_TYPES  = ['Odd', 'Even']   # Odd = sem 1,3,5,7 | Even = sem 2,4,6
+
+DIVISIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
+REQUESTED_COURSES = ['BCA Hons', 'BCA', 'IMCA', 'MCA', 'MCA NEP', 'MSc IT', 'MSc IT NEP']
+MIN_DAILY_LECTURES = 3
+PREFERRED_DAILY_LECTURES = 4
+MIN_DAILY_FREE_LECTURES = 1
+MIN_SESSION_LECTURES = 3
+MAX_DAILY_FREE_LECTURES = 2
+DAILY_WORKING_SLOTS = 4
+DAILY_THEORY_SLOTS = 3
+DAILY_LAB_SLOTS = 1
+
+DESIGNATION_MAX_HOURS = {
+    'Vice Principal':      6,
+    'HOD':                12,
+    'Associate Professor': 14,
+    'Regular Faculty':    18,
+}

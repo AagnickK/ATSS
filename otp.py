@@ -1,7 +1,7 @@
-import os
-import random
+import secrets
 import smtplib
 from email.message import EmailMessage
+import os
 from dotenv import load_dotenv, set_key
 
 ENV_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), '.env')
@@ -25,7 +25,8 @@ def is_configured():
 
 
 def generate_otp():
-    return ''.join(str(random.randint(0, 9)) for _ in range(6))
+    """Cryptographically secure 6-digit OTP."""
+    return ''.join(str(secrets.randbelow(10)) for _ in range(6))
 
 
 def send_otp(to_email, otp):
