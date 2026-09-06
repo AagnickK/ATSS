@@ -82,7 +82,6 @@ atss_python/
 │   ├── css/app.css     ← Main application styles
 │   ├── style.css       ← Auth page styles
 │   ├── js/app.js       ← Frontend JS (lock toggle, etc.)
-│   └── cursor.js       ← Custom cursor animation
 │
 ├── instance/
 │   └── timetable.db    ← SQLite database (auto-created)

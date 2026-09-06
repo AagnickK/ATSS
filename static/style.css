@@ -264,28 +264,3 @@ input.otp-input {
 @media (max-width: 480px) {
     body { align-items: flex-start; padding-top: 3rem; }
 }
-/* Water Drop Cursor Effect */
-.cursor-ripple {
-    position: fixed;
-    width: 18px;
-    height: 18px;
-    border: 2px solid rgba(128, 128, 128, 0.5);
-    border-radius: 50%;
-    pointer-events: none;
-    transform: translate(-50%, -50%);
-    animation: ripple 0.7s ease-out forwards;
-    z-index: 9999;
-}
-
-@keyframes ripple {
-    0% {
-        width: 8px;
-        height: 8px;
-        opacity: 0.9;
-    }
-    100% {
-        width: 50px;
-        height: 50px;
-        opacity: 0;
-    }
-}

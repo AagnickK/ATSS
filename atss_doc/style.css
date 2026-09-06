@@ -13,7 +13,7 @@
   --border-soft:   #383838;
   --text:          #e2e2e2;
   --text-dim:      #a0a0a0;
-  --text-faint:   #5e5e5e;
+  --text-faint:    #5e5e5e;
   --accent:        #ff9000;
   --accent-dim:    #805000;
   --accent-tint:   rgba(255,144,0,.10);
@@ -115,7 +115,7 @@ pre:hover .copy-btn{ opacity:1; }
   min-height:100vh;
 }
 
-/* ---------- sidebar ---------- */
+/* ---------- sidebar --------- */
 
 .sidebar{
   position:fixed;

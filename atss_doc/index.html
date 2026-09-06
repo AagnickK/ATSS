@@ -12,7 +12,8 @@
 <div class="app">
 
   <aside class="sidebar">
-        <div class="brand">
+    <div class="brand">
+      <div class="brand-mark">A</div>
       <div class="brand-text">
         <div class="brand-name">A<span>TSS</span></div>
         <div class="brand-sub">Project documentation</div>
@@ -57,6 +58,7 @@
 <a href="#sec-27" class="nav-link" data-num="27"><span class="nav-num">27</span><span class="nav-title">Deployment</span></a>
 <a href="#sec-28" class="nav-link" data-num="28"><span class="nav-num">28</span><span class="nav-title">Rules for Future AI Coding Agents</span></a>
 <a href="#sec-29" class="nav-link" data-num="29"><span class="nav-num">29</span><span class="nav-title">Change Log</span></a>
+<a href="#sec-30" class="nav-link" data-num="30"><span class="nav-num">30</span><span class="nav-title">System Design Diagrams</span></a>
     </nav>
 
     <div class="sidebar-foot">
@@ -64,7 +66,7 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
         <span id="theme-label">Dark</span>
       </button>
-      <span class="sidebar-status">29 sections</span>
+      <span class="sidebar-status">30 sections</span>
     </div>
   </aside>
 
@@ -119,7 +121,6 @@
 - Export timetable to Excel (.xlsx) and PDF<br />
 - Client-side filtering (8 filter dimensions) and pagination (15 rows/page)<br />
 - Dark/light theme toggle persisted in localStorage<br />
-- Custom cursor animation (water-drop effect)<br />
 - Gmail OTP for registration and password reset</p>
 <p><strong>Technology Stack:</strong> Python/Flask backend, SQLite database, Jinja2 templates, Tailwind CSS (CDN), Google OR-Tools CP-SAT solver</p>
 <p><strong>Current Status:</strong> Development / local deployment. No production deployment configured.</p>
@@ -153,8 +154,7 @@
 │   └── Faculty_ID.xlsx                               # Sample import file
 │
 ├── static/
-│   ├── style.css           # CSS variables, auth page styles, cursor animation
-│   ├── cursor.js           # Water-drop cursor effect
+│   ├── style.css           # CSS variables and auth page styles
 │   ├── css/app.css         # Layout, sidebar, tables, cards (authenticated pages)
 │   └── js/app.js           # Lock toggle JS, legacy theme toggle
 │
@@ -315,7 +315,7 @@ scheduler.py
 <td>JavaScript (vanilla)</td>
 <td>Client-side filtering, pagination, lock toggle</td>
 <td>ES6</td>
-<td>timetable.html, app.js, cursor.js</td>
+<td>timetable.html, app.js</td>
 </tr>
 </tbody>
 </table>
@@ -2492,6 +2492,359 @@ instance/timetable.db timetable table
 <p><em>End of PROJECT_DOCUMENTATION.md</em></p>
 </div>
 </section>
+<section class="doc-section" id="sec-30" data-num="30" data-title="System Design Diagrams">
+<div class="section-head">
+<span class="section-index">30</span>
+<h2>System Design Diagrams</h2>
+</div>
+<div class="section-body">
+<p>Standard software-engineering diagrams for ATSS, derived from the models, routes, and workflows documented in Sections 4&ndash;23. All diagrams render live via Mermaid — nothing here is a static image.</p>
+
+<h3>30.1 Use Case Diagram</h3>
+<p>Admin is the only active actor today. Faculty and Student are modelled per the <code>role</code> column on <code>user</code>, but no routes exist for them yet — shown as planned/dashed.</p>
+<pre><code class="language-mermaid">flowchart LR
+    Admin["Admin"]
+    Faculty["Faculty (planned)"]
+    Student["Student (planned)"]
+
+    subgraph ATSS["ATSS System"]
+        direction TB
+        UC1("Login / Register")
+        UC2("Verify OTP")
+        UC3("Manage Faculty")
+        UC4("Import Faculty Excel")
+        UC5("Manage Subjects")
+        UC6("Manage Rooms")
+        UC7("Generate Timetable")
+        UC14("Solve via OR-Tools CP-SAT")
+        UC8("View and Filter Timetable")
+        UC9("Lock / Unlock Entry")
+        UC10("Export Timetable")
+        UC11("Logout")
+        UC12("View Own Timetable (planned)")
+        UC13("View Division Timetable (planned)")
+    end
+
+    Admin --> UC1
+    Admin --> UC2
+    Admin --> UC3
+    Admin --> UC5
+    Admin --> UC6
+    Admin --> UC7
+    Admin --> UC8
+    Admin --> UC9
+    Admin --> UC10
+    Admin --> UC11
+    UC3 -.->|includes| UC4
+    UC7 -.->|includes| UC14
+    Faculty -.-> UC12
+    Student -.-> UC13
+</code></pre>
+
+<h3>30.2 Data Flow Diagram</h3>
+<p><strong>Level 0 (context):</strong> the whole system as one process against its two external entities.</p>
+<pre><code class="language-mermaid">flowchart LR
+    Admin["Admin"]
+    Gmail["Gmail SMTP"]
+    SYS((("0.0
+ATSS System")))
+    Admin -->|"credentials, master data, session_type"| SYS
+    SYS -->|"dashboards, timetables, exports"| Admin
+    SYS -->|"OTP send request"| Gmail
+    Gmail -->|"OTP email"| Admin
+</code></pre>
+
+<p><strong>Level 1:</strong> the four major processes and their data stores.</p>
+<pre><code class="language-mermaid">flowchart TD
+    Admin["Admin"]
+    Gmail["Gmail SMTP"]
+    P1((("1.0
+Authenticate
+and Register")))
+    P2((("2.0
+Manage
+Master Data")))
+    P3((("3.0
+Generate
+Timetable")))
+    P4((("4.0
+View and Export
+Timetable")))
+    D1[("D1 User")]
+    D2[("D2 Faculty")]
+    D3[("D3 Subject")]
+    D4[("D4 Division")]
+    D5[("D5 Room")]
+    D6[("D6 Allocation")]
+    D7[("D7 Timetable")]
+
+    Admin -->|"login / register / OTP"| P1
+    P1 -->|"send OTP"| Gmail
+    Gmail -->|"OTP code"| Admin
+    P1 <-->|"read / write"| D1
+
+    Admin -->|"faculty, subject, room data + Excel import"| P2
+    P2 <-->|"read / write"| D2
+    P2 <-->|"read / write"| D3
+    P2 <-->|"read / write"| D4
+    P2 <-->|"read / write"| D5
+    P2 -->|"write"| D6
+
+    Admin -->|"session_type"| P3
+    P3 -->|"read"| D6
+    P3 -->|"read"| D2
+    P3 -->|"read"| D3
+    P3 -->|"read"| D4
+    P3 -->|"read"| D5
+    P3 -->|"write"| D7
+
+    Admin -->|"filter / lock / export request"| P4
+    P4 -->|"read"| D7
+    P4 -->|"timetable data, files"| Admin
+</code></pre>
+
+<h3>30.3 Flowchart — Overall Application Workflow</h3>
+<p>Traces the same path as Section 5, from first visit to logout.</p>
+<pre><code class="language-mermaid">flowchart TD
+    A(["Visit /"]) --> B["Redirect to /login"]
+    B --> C{"Credentials valid?"}
+    C -- No --> B2["Flash: Invalid credentials"] --> B
+    C -- Yes --> D["login_user() — session cookie"]
+    D --> E["/dashboard"]
+    E --> F["Import faculty Excel"]
+    F --> G["Add subjects and rooms"]
+    G --> H["POST /timetable/generate"]
+    H --> I["CP-SAT builds and solves model"]
+    I --> J["/timetable — filter, sort, paginate"]
+    J --> K["Lock important entries"]
+    K --> L["Export Excel or PDF"]
+    L --> M(["Logout"])
+</code></pre>
+
+<h3>30.4 Class Diagram</h3>
+<p>The seven SQLAlchemy models from Section 12, plus the scheduler as the service class that consumes them.</p>
+<pre><code class="language-mermaid">classDiagram
+    class User {
+        +int id
+        +string username
+        +string email
+        +string password
+        +string role
+    }
+    class Faculty {
+        +int id
+        +string faculty_id
+        +string name
+        +string designation
+        +string department
+        +string shift
+        +int max_hours
+        +string email
+    }
+    class Subject {
+        +int id
+        +string subject_name
+        +string course
+        +int semester
+        +string session_type
+        +string type
+        +int lecture_hours
+        +int lab_hours
+    }
+    class Division {
+        +int id
+        +string course
+        +int semester
+        +string division
+        +int students
+        +string shift
+        +string session_type
+    }
+    class Room {
+        +int id
+        +string room_no
+        +string type
+        +int capacity
+        +string building
+    }
+    class Allocation {
+        +int id
+        +int faculty_id
+        +int subject_id
+        +int division_id
+    }
+    class Timetable {
+        +int id
+        +string day
+        +int slot
+        +int faculty_id
+        +int subject_id
+        +int division_id
+        +int room_id
+        +string batch
+        +bool locked
+    }
+    class Scheduler {
+        +generate_timetable(allocations, faculty_map, subject_map, division_map, room_list) list
+    }
+
+    Faculty "1" --> "*" Allocation : teaches
+    Subject "1" --> "*" Allocation : offered_in
+    Division "1" --> "*" Allocation : receives
+    Faculty "1" --> "*" Timetable : assigned_to
+    Subject "1" --> "*" Timetable : scheduled_as
+    Division "1" --> "*" Timetable : attends
+    Room "1" --> "*" Timetable : hosts
+    Scheduler ..> Allocation : reads
+    Scheduler ..> Timetable : creates
+</code></pre>
+
+<h3>30.5 Sequence Diagram — Generate Timetable</h3>
+<p>The core feature: CP-SAT scheduling from click to saved rows, matching the algorithm in Section 23.</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    actor Admin
+    participant Browser
+    participant Flask as Flask (tt_bp)
+    participant DB as SQLite
+    participant Scheduler
+    participant Constraints
+    participant ORTools as OR-Tools CP-SAT
+
+    Admin->>Browser: Click Generate (session_type)
+    Browser->>Flask: POST /timetable/generate
+    Flask->>DB: DELETE unlocked Timetable rows
+    Flask->>DB: SELECT Allocation, Faculty, Subject, Division, Room
+    DB-->>Flask: rows
+    Flask->>Scheduler: generate_timetable(allocations, maps, rooms)
+    Scheduler->>Scheduler: create BoolVar per (faculty, subject, division, day, slot)
+    Scheduler->>Constraints: add_hard_constraints(model)
+    Constraints-->>Scheduler: faculty and division clash constraints added
+    Scheduler->>Constraints: weekly_hours_limit(model)
+    Constraints-->>Scheduler: weekly cap constraints added
+    Scheduler->>ORTools: solver.solve(model), 60s timeout
+    alt Feasible or optimal solution
+        ORTools-->>Scheduler: solution values
+        Scheduler->>Scheduler: extract assigned BoolVars
+        Scheduler->>Scheduler: greedy room assignment
+        Scheduler-->>Flask: list of timetable entry dicts
+        Flask->>DB: bulk insert Timetable rows
+        Flask-->>Browser: redirect /timetable, flash "N entries"
+    else No feasible solution
+        ORTools-->>Scheduler: INFEASIBLE
+        Scheduler-->>Flask: []
+        Flask-->>Browser: redirect /timetable, flash "0 entries"
+    end
+    Browser-->>Admin: Render updated timetable
+</code></pre>
+
+<h3>30.6 Activity Diagram — Timetable Generation</h3>
+<p>The same flow as a UML activity diagram, grouped by which part of the stack owns each step.</p>
+<pre><code class="language-mermaid">flowchart TD
+    subgraph L1["Admin"]
+        A1(["Click Generate"])
+    end
+    subgraph L2["Flask route"]
+        B1["Delete unlocked entries"]
+        B2["Load allocations, faculty, subjects, divisions, rooms"]
+    end
+    subgraph L3["scheduler.py"]
+        C1["Create BoolVar per faculty, subject, division, day, slot"]
+        C2["Add weekly-hours constraint"]
+        C3["Add faculty clash constraint"]
+        C4["Add division clash constraint"]
+        C5["Add weekly cap constraint"]
+    end
+    subgraph L4["OR-Tools CP-SAT"]
+        D1["Solve model, 60s timeout"]
+        D2{"Feasible or optimal?"}
+    end
+    subgraph L5["Post-solve"]
+        E1["Extract assigned BoolVars"]
+        E2["Greedy room assignment"]
+        E3["Insert Timetable rows"]
+    end
+
+    A1 --> B1 --> B2 --> C1 --> C2 --> C3 --> C4 --> C5 --> D1 --> D2
+    D2 -- Yes --> E1 --> E2 --> E3 --> F1(["Timetable saved"])
+    D2 -- No --> F2(["Return empty list — 0 entries"])
+</code></pre>
+
+<h3>30.7 ER Diagram</h3>
+<p>All seven tables from Section 12, with foreign keys and cardinalities as implemented — no cascade deletes, per the <span class="flag flag-issue">Potential issue</span> noted in Section 24.</p>
+<pre><code class="language-mermaid">erDiagram
+    USER {
+        int id PK
+        string username UK
+        string email UK
+        string password
+        string role
+    }
+    FACULTY {
+        int id PK
+        string faculty_id UK
+        string name
+        string designation
+        string department
+        string shift
+        int max_hours
+        string email
+    }
+    SUBJECT {
+        int id PK
+        string subject_name
+        string course
+        int semester
+        string session_type
+        string type
+        int lecture_hours
+        int lab_hours
+    }
+    DIVISION {
+        int id PK
+        string course
+        int semester
+        string division
+        int students
+        string shift
+        string session_type
+    }
+    ROOM {
+        int id PK
+        string room_no UK
+        string type
+        int capacity
+        string building
+    }
+    ALLOCATION {
+        int id PK
+        int faculty_id FK
+        int subject_id FK
+        int division_id FK
+    }
+    TIMETABLE {
+        int id PK
+        string day
+        int slot
+        int faculty_id FK
+        int subject_id FK
+        int division_id FK
+        int room_id FK
+        string batch
+        bool locked
+    }
+
+    FACULTY ||--o{ ALLOCATION : teaches
+    SUBJECT ||--o{ ALLOCATION : offered_in
+    DIVISION ||--o{ ALLOCATION : receives
+    FACULTY ||--o{ TIMETABLE : assigned_to
+    SUBJECT ||--o{ TIMETABLE : scheduled_as
+    DIVISION ||--o{ TIMETABLE : attends
+    ROOM ||--o{ TIMETABLE : hosts
+</code></pre>
+
+</div>
+</section>
+
     </div>
 
     <div class="doc-footer">End of PROJECT_DOCUMENTATION.md — converted to HTML/CSS/JS reference.</div>

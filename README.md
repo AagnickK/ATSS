@@ -66,7 +66,6 @@
 - Export timetable to Excel (.xlsx) and PDF
 - Client-side filtering (8 filter dimensions) and pagination (15 rows/page)
 - Dark/light theme toggle persisted in localStorage
-- Custom cursor animation (water-drop effect)
 - Gmail OTP for registration and password reset
 
 **Technology Stack:** Python/Flask backend, SQLite database, Jinja2 templates, Tailwind CSS (CDN), Google OR-Tools CP-SAT solver
@@ -99,8 +98,7 @@ atss_python/
 │   └── Faculty_ID.xlsx                               # Sample import file
 │
 ├── static/
-│   ├── style.css           # CSS variables, auth page styles, cursor animation
-│   ├── cursor.js           # Water-drop cursor effect
+│   ├── style.css           # CSS variables and auth page styles
 │   ├── css/app.css         # Layout, sidebar, tables, cards (authenticated pages)
 │   └── js/app.js           # Lock toggle JS, legacy theme toggle
 │
@@ -167,7 +165,7 @@ scheduler.py
 | smtplib | Gmail SMTP | built-in | otp.py |
 | Tailwind CSS | UI styling | CDN (latest) | All templates |
 | Jinja2 | HTML templating | bundled with Flask | All templates |
-| JavaScript (vanilla) | Client-side filtering, pagination, lock toggle | ES6 | timetable.html, app.js, cursor.js |
+| JavaScript (vanilla) | Client-side filtering, pagination, lock toggle | ES6 | timetable.html, app.js |
 
 ---
 
