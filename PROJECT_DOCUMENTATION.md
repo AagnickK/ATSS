@@ -64,7 +64,7 @@
 - Session-based generation: Odd semester (1,3,5,7) or Even semester (2,4,6)
 - Timetable locking (lock individual entries to preserve them across regeneration)
 - Export timetable to Excel (.xlsx) and PDF
-- Client-side filtering (8 filter dimensions) and pagination (15 rows/page)
+- Client-side filtering (9 filter dimensions) and pagination (15 rows/page)
 - Dark/light theme toggle persisted in localStorage
 - Gmail OTP for registration and password reset
 
@@ -323,9 +323,10 @@ Admin logs out → GET /logout
 ### 7.6 Timetable View + Filter
 - **Files:** `routes.py` (tt_bp), `templates/timetable.html`
 - **Endpoint:** `GET /timetable`
-- **Filters (client-side):** Search text, Session (Odd/Even), Day, Slot, Division, Faculty, Type (Theory/Lab)
+- **Filters (client-side):** Search text, Session (Odd/Even), Day, Slot, Course, Division, Semester, Faculty, Type (Theory/Lab)
 - **Pagination:** 15 rows per page, client-side JS
-- **Sorting:** Click column headers to sort (Day sorts by Mon-Sat order, not alphabetically)
+- **Sorting:** Click column headers to sort (Day sorts by Mon-Sat order, not alphabetically); sorting is applied to the currently filtered rows and then rendered back into the table DOM so it works after filtering.
+- **Room / Lab display:** Subject rows show `Room <room_no>` for theory and `Lab <room_no>` for lab entries. Self Study and Free Lecture rows intentionally show `—` because they do not use a room.
 
 ### 7.7 Timetable Lock/Unlock
 - **Files:** `routes.py` (tt_bp), `templates/timetable.html`
@@ -717,8 +718,8 @@ All endpoints are server-rendered (Jinja2). Only one endpoint returns JSON.
 All filtering and pagination is done in JavaScript — no page reload required.
 
 **Filter flow:**
-1. All `<tr class="tt-row">` elements have data attributes: `data-day`, `data-slot`, `data-faculty-id`, `data-division-id`, `data-session`, `data-type`, `data-search`
-2. `applyFilters()` reads all 7 filter inputs and hides non-matching rows
+1. All `<tr class="tt-row">` elements have data attributes: `data-day`, `data-slot`, `data-faculty-id`, `data-course`, `data-division`, `data-sem`, `data-session`, `data-type`, `data-search`
+2. `applyFilters()` reads all 9 filter inputs and hides non-matching rows
 3. `render()` shows only the current page slice (15 rows)
 4. Search input is debounced 200ms
 
@@ -733,6 +734,12 @@ All filtering and pagination is done in JavaScript — no page reload required.
 - Day column sorts by DAY_ORDER object (Mon=1 … Sat=6)
 - Slot column sorts numerically
 - Other columns sort alphabetically
+- `render()` appends rows to `#tt-body` in the sorted order before applying pagination visibility, so sorting remains visible after filters are applied.
+
+**Room / Lab column:**
+- Theory entries display `Room <room_no>`.
+- Lab entries display `Lab <room_no>` for each assigned batch.
+- Self Study and Free Lecture entries display `—` because `room_id` is intentionally null.
 
 **Lock toggle:**
 - Click 🔓/🔒 button → `fetch POST /timetable/lock/<id>` with CSRF token
@@ -1275,6 +1282,7 @@ The app runs with `app.run(debug=True)` which is development-only.
 | 2025-07 | Replaced all amber Tailwind classes with #FF9000 | All templates | Brand color standardization |
 | 2025-07 | Added client-side filtering (8 dimensions) + pagination (15/page) | timetable.html | UX improvement |
 | 2025-07 | Created PROJECT_DOCUMENTATION.md | PROJECT_DOCUMENTATION.md | Single source of truth |
+| 2026-09-24 | Fixed timetable Room/Lab visibility and sorting after filters | timetable.html | Show explicit room state and synchronize sorted rows with the table DOM |
 
 ---
 

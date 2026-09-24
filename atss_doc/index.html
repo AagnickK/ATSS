@@ -119,7 +119,7 @@
 - Session-based generation: Odd semester (1,3,5,7) or Even semester (2,4,6)<br />
 - Timetable locking (lock individual entries to preserve them across regeneration)<br />
 - Export timetable to Excel (.xlsx) and PDF<br />
-- Client-side filtering (8 filter dimensions) and pagination (15 rows/page)<br />
+- Client-side filtering (9 filter dimensions) and pagination (15 rows/page)<br />
 - Dark/light theme toggle persisted in localStorage<br />
 - Gmail OTP for registration and password reset</p>
 <p><strong>Technology Stack:</strong> Python/Flask backend, SQLite database, Jinja2 templates, Tailwind CSS (CDN), Google OR-Tools CP-SAT solver</p>
@@ -515,9 +515,10 @@ Admin logs out → GET /logout
 <ul>
 <li><strong>Files:</strong> <code>routes.py</code> (tt_bp), <code>templates/timetable.html</code></li>
 <li><strong>Endpoint:</strong> <code>GET /timetable</code></li>
-<li><strong>Filters (client-side):</strong> Search text, Session (Odd/Even), Day, Slot, Division, Faculty, Type (Theory/Lab)</li>
+<li><strong>Filters (client-side):</strong> Search text, Session (Odd/Even), Day, Slot, Course, Division, Semester, Faculty, Type (Theory/Lab)</li>
 <li><strong>Pagination:</strong> 15 rows per page, client-side JS</li>
-<li><strong>Sorting:</strong> Click column headers to sort (Day sorts by Mon-Sat order, not alphabetically)</li>
+<li><strong>Sorting:</strong> Click column headers to sort (Day sorts by Mon-Sat order, not alphabetically); sorting is applied to the currently filtered rows and then rendered back into the table DOM so it works after filtering.</li>
+<li><strong>Room / Lab display:</strong> Subject rows show <code>Room &lt;room_no&gt;</code> for theory and <code>Lab &lt;room_no&gt;</code> for lab entries. Self Study and Free Lecture rows intentionally show <code>—</code> because they do not use a room.</li>
 </ul>
 <h3>7.7 Timetable Lock/Unlock</h3>
 <ul>
@@ -1554,8 +1555,8 @@ Admin logs out → GET /logout
 <h3>timetable.html Client-Side Logic</h3>
 <p>All filtering and pagination is done in JavaScript — no page reload required.</p>
 <p><strong>Filter flow:</strong><br />
-1. All <code>&lt;tr class="tt-row"&gt;</code> elements have data attributes: <code>data-day</code>, <code>data-slot</code>, <code>data-faculty-id</code>, <code>data-division-id</code>, <code>data-session</code>, <code>data-type</code>, <code>data-search</code><br />
-2. <code>applyFilters()</code> reads all 7 filter inputs and hides non-matching rows<br />
+1. All <code>&lt;tr class="tt-row"&gt;</code> elements have data attributes: <code>data-day</code>, <code>data-slot</code>, <code>data-faculty-id</code>, <code>data-course</code>, <code>data-division</code>, <code>data-sem</code>, <code>data-session</code>, <code>data-type</code>, <code>data-search</code><br />
+2. <code>applyFilters()</code> reads all 9 filter inputs and hides non-matching rows<br />
 3. <code>render()</code> shows only the current page slice (15 rows)<br />
 4. Search input is debounced 200ms</p>
 <p><strong>Pagination:</strong><br />
@@ -1567,7 +1568,12 @@ Admin logs out → GET /logout
 - Click column header → <code>sortTable(col)</code> sorts <code>filteredRows</code> array<br />
 - Day column sorts by DAY_ORDER object (Mon=1 … Sat=6)<br />
 - Slot column sorts numerically<br />
-- Other columns sort alphabetically</p>
+- Other columns sort alphabetically<br />
+- <code>render()</code> appends rows to <code>#tt-body</code> in the sorted order before applying pagination visibility, so sorting remains visible after filters are applied.</p>
+<p><strong>Room / Lab column:</strong><br />
+- Theory entries display <code>Room &lt;room_no&gt;</code>.<br />
+- Lab entries display <code>Lab &lt;room_no&gt;</code> for each assigned batch.<br />
+- Self Study and Free Lecture entries display <code>—</code> because <code>room_id</code> is intentionally null.</p>
 <p><strong>Lock toggle:</strong><br />
 - Click 🔓/🔒 button → <code>fetch POST /timetable/lock/&lt;id&gt;</code> with CSRF token<br />
 - Updates button emoji and row opacity without page reload</p>
@@ -2479,6 +2485,12 @@ instance/timetable.db timetable table
 <td>Added client-side filtering (8 dimensions) + pagination (15/page)</td>
 <td>timetable.html</td>
 <td>UX improvement</td>
+</tr>
+<tr>
+<td>2026-09-24</td>
+<td>Fixed timetable Room/Lab visibility and sorting after filters</td>
+<td>timetable.html</td>
+<td>Show explicit room state and synchronize sorted rows with the table DOM</td>
 </tr>
 <tr>
 <td>2025-07</td>

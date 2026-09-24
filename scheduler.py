@@ -2,8 +2,8 @@
 ATSS Scheduling Engine — Greedy slot-filler with clash detection.
 
 Rules enforced:
-    1. Six slots per division-day, with four preferred working slots.
-    2. Working slots prioritize three theory entries and one lab entry.
+    1. Six slots per division-day, with three preferred working slots.
+    2. Working slots prioritize theory entries and lab entries.
     3. One self-study slot is added when a slot is available; remaining slots
          are free lectures, capped at two.
 """
@@ -25,7 +25,7 @@ def _slots_for_shift(shift):
 
 
 def generate_timetable(allocations, faculty_map, subject_map, division_map, room_list,
-                       return_diagnostics=False):
+                       reserved_entries=None, return_diagnostics=False):
     classrooms = [r for r in room_list if r.type == 'Classroom']
     labs       = [r for r in room_list if r.type == 'Lab']
 
@@ -39,6 +39,30 @@ def generate_timetable(allocations, faculty_map, subject_map, division_map, room
 
     result = []
     shortages = []
+
+    # Locked entries survive regeneration. Reserve their exact day/slot only;
+    # rooms remain available on all other days.
+    reserved_working_slots = set()
+    for entry in reserved_entries or []:
+        if entry.faculty_id is not None:
+            faculty_busy[entry.faculty_id].add((entry.day, entry.slot))
+        if entry.room_id is not None:
+            room_busy.add((entry.day, entry.slot, entry.room_id))
+
+        if entry.division_id not in division_map:
+            continue
+        key = (entry.division_id, entry.day, entry.slot)
+        division_busy[entry.division_id].add((entry.day, entry.slot))
+        if entry.subject_id is not None and key not in reserved_working_slots:
+            reserved_working_slots.add(key)
+            subject = subject_map.get(entry.subject_id)
+            if subject:
+                subject_day_count[(entry.subject_id, entry.division_id, entry.day)] += 1
+                division_day_count[(entry.division_id, entry.day)] += 1
+                if subject.type == 'Lab':
+                    lab_day_count[(entry.division_id, entry.day)] += 1
+                else:
+                    theory_day_count[(entry.division_id, entry.day)] += 1
 
     # ── 1. Schedule allocations fairly ───────────────────────────────────────
     # Work in rounds so one division cannot consume all shared faculty/rooms
@@ -116,9 +140,6 @@ def generate_timetable(allocations, faculty_map, subject_map, division_map, room
             if placed >= hours_needed:
                 break
 
-            # Max 2 of same subject per division per day
-            if subject_day_count[(sid, did, day)] >= 2:
-                continue
             # Faculty clash
             if (day, slot_no) in faculty_busy[fid]:
                 continue
@@ -187,7 +208,7 @@ def generate_timetable(allocations, faculty_map, subject_map, division_map, room
                 'required': required,
             })
 
-    # ── 2. Fill the four daily working slots for every division ──────────────
+    # ── 2. Fill the three daily working slots for every division ─────────────
     # Prefer three theory slots and one lab slot. If the supplied allocations
     # do not contain that mix, use any available subject as the fallback.
     for did, division in division_map.items():
@@ -210,11 +231,11 @@ def generate_timetable(allocations, faculty_map, subject_map, division_map, room
                 division_allocations,
                 key=lambda alloc: subject_map[alloc.subject_id].type != 'Theory',
             )
-            # A sparse import may contain fewer than four subjects. Reuse the
+            # A sparse import may contain fewer than three subjects. Reuse the
             # available allocation only as a fallback to fill the daily target.
             candidates = candidates * DAILY_WORKING_SLOTS
             for alloc in candidates:
-                if sum(slot_day == day for slot_day, _ in working_slots) >= DAILY_WORKING_SLOTS:
+                if division_day_count[(did, day)] >= DAILY_WORKING_SLOTS:
                     break
                 subject = subject_map[alloc.subject_id]
                 if subject.type == 'Theory' and theory_day_count[(did, day)] >= DAILY_THEORY_SLOTS \
@@ -227,28 +248,33 @@ def generate_timetable(allocations, faculty_map, subject_map, division_map, room
                     faculty_map[alloc.faculty_id].shift or division.shift or 'General'
                 )]
                 slot_no = next(
-                    (slot for slot in slot_numbers if (day, slot) not in working_slots),
+                    (slot for slot in slot_numbers
+                     if (day, slot) not in division_busy[did]
+                     and (day, slot) not in faculty_busy[alloc.faculty_id]),
                     None,
                 )
                 if slot_no is None:
                     continue
                 room_pool = labs if subject.type == 'Lab' else classrooms
-                room = next(
-                    (room for room in room_pool
-                     if room.capacity >= division.students
-                     and (day, slot_no, room.id) not in room_busy),
-                    None,
-                )
-                if room:
+                required_rooms = lab_batch_count(division.students) if subject.type == 'Lab' else 1
+                free_rooms = [
+                    room for room in room_pool
+                    if room.capacity >= division.students
+                    and (day, slot_no, room.id) not in room_busy
+                ][:required_rooms]
+                if len(free_rooms) < required_rooms:
+                    continue
+                for room in free_rooms:
                     room_busy.add((day, slot_no, room.id))
-                result.append({
-                    'day': day, 'slot': slot_no,
-                    'faculty_id': alloc.faculty_id,
-                    'subject_id': alloc.subject_id,
-                    'division_id': did,
-                    'room_id': room.id if room else None,
-                    'batch': 'Batch1' if subject.type == 'Lab' else None,
-                })
+                for batch_no, room in enumerate(free_rooms, start=1):
+                    result.append({
+                        'day': day, 'slot': slot_no,
+                        'faculty_id': alloc.faculty_id,
+                        'subject_id': alloc.subject_id,
+                        'division_id': did,
+                        'room_id': room.id,
+                        'batch': f'Batch{batch_no}' if subject.type == 'Lab' else None,
+                    })
                 faculty_busy[alloc.faculty_id].add((day, slot_no))
                 division_busy[did].add((day, slot_no))
                 working_slots.add((day, slot_no))
@@ -259,7 +285,7 @@ def generate_timetable(allocations, faculty_map, subject_map, division_map, room
                     lab_day_count[(did, day)] += 1
                 placed_hours[(did, alloc.subject_id, alloc.faculty_id)] += 1
 
-    # ── 3. Self study: one slot after the four working slots ─────────────────
+    # ── 3. Self study: one slot after the three working slots ────────────────
     for did, division in division_map.items():
         shift = division.shift or 'General'
         all_slot_nos = [slot for slot, _, _ in _slots_for_shift(shift)]

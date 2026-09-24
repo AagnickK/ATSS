@@ -5,7 +5,7 @@ and populates Faculty, Subject, Division, Allocation tables.
 import pandas as pd
 from extensions import db
 from models import Faculty, Subject, Division, Allocation
-from config import ODD_SEMESTERS, DESIGNATION_MAX_HOURS
+from config import ODD_SEMESTERS, DESIGNATION_MAX_HOURS, canonical_course, is_course_semester_allowed
 
 
 def _session_type(semester):
@@ -49,18 +49,22 @@ def import_faculty_excel(filepath):
 
         # Subject columns: subject_name, course, semester, type, lecture_hours, lab_hours
         sub_name = str(row.get('subject_name', row.get('subject', ''))).strip()
+        course   = canonical_course(row.get('course', ''))
+        semester = int(row.get('semester', 0) or 0)
+        if not is_course_semester_allowed(course, semester):
+            continue
         if sub_name and sub_name != 'nan':
             subject = Subject.query.filter_by(
                 subject_name=sub_name,
-                course=str(row.get('course', '')).strip(),
-                semester=int(row.get('semester', 0) or 0),
+            course=course,
+                semester=semester,
             ).first()
             if not subject:
-                sem      = int(row.get('semester', 0) or 0)
+                sem      = semester
                 sub_type = str(row.get('type', 'Theory')).strip()
                 subject = Subject(
                     subject_name  = sub_name,
-                    course        = str(row.get('course', '')).strip(),
+                    course        = course,
                     semester      = sem,
                     session_type  = _session_type(sem),
                     type          = sub_type,
@@ -70,8 +74,6 @@ def import_faculty_excel(filepath):
                 db.session.add(subject)
                 db.session.flush()
 
-            course   = str(row.get('course', '')).strip()
-            semester = int(row.get('semester', 0) or 0)
             # Division expansion rules:
             #   IMCA           -> div A only
             #   all others     -> divs A-I

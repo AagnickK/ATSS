@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import generate_csrf
 from extensions import db, bcrypt
 from models import User, Faculty, Subject, Division, Room, Allocation, Timetable
-from config import DAYS, MORNING_SLOTS, GENERAL_SLOTS, DESIGNATIONS, SHIFTS, SUBJECT_TYPES, ROOM_TYPES, SESSION_TYPES, ODD_SEMESTERS, EVEN_SEMESTERS, DIVISIONS, REQUESTED_COURSES, DESIGNATION_MAX_HOURS
+from config import DAYS, MORNING_SLOTS, GENERAL_SLOTS, DESIGNATIONS, SHIFTS, SUBJECT_TYPES, ROOM_TYPES, SESSION_TYPES, ODD_SEMESTERS, EVEN_SEMESTERS, DIVISIONS, REQUESTED_COURSES, DESIGNATION_MAX_HOURS, COURSE_ALIASES, canonical_course, is_requested_course, is_course_semester_allowed
 import otp as otp_module
 
 # ── Auth Blueprint ────────────────────────────────────────────────────────────
@@ -293,14 +293,20 @@ def timetable_view():
     entries    = Timetable.query.all()
     divisions  = Division.query.order_by(Division.course, Division.semester, Division.division).all()
     faculty    = Faculty.query.order_by(Faculty.name).all()
-    courses    = sorted({d.course for d in divisions if d.course})
+    courses    = sorted({canonical_course(d.course) for d in divisions if d.course})
     sel_div    = request.args.get('division_id', type=int)
     sel_fac    = request.args.get('faculty_id',  type=int)
     sel_session = request.args.get('session_type', '')   # 'Odd' | 'Even' | ''
 
     if sel_session in ('Odd', 'Even'):
         sems = ODD_SEMESTERS if sel_session == 'Odd' else EVEN_SEMESTERS
-        entries = [e for e in entries if e.division and e.division.semester in sems]
+        entries = [
+            e for e in entries
+            if e.division
+            and e.division.semester in sems
+            and is_requested_course(e.division.course)
+            and is_course_semester_allowed(e.division.course, e.division.semester)
+        ]
     if sel_div:
         entries = [e for e in entries if e.division_id == sel_div]
     if sel_fac:
@@ -310,6 +316,7 @@ def timetable_view():
                            entries=entries, days=DAYS,
                            morning_slots=MORNING_SLOTS, general_slots=GENERAL_SLOTS,
                            divisions=divisions, faculty=faculty, courses=courses,
+                           course_aliases=COURSE_ALIASES,
                            sel_div=sel_div, sel_fac=sel_fac,
                            sel_session=sel_session, session_types=SESSION_TYPES)
 
@@ -326,6 +333,14 @@ def timetable_generate():
 
     sems = ODD_SEMESTERS if session_type == 'Odd' else EVEN_SEMESTERS
 
+    existing_entries = Timetable.query.all()
+    locked_entries = [
+        e for e in existing_entries
+        if e.division and (
+            e.locked or e.division.semester not in sems
+        )
+    ]
+
     # Clear only unlocked entries for this session
     to_delete = [
         e for e in Timetable.query.filter_by(locked=False).all()
@@ -338,17 +353,18 @@ def timetable_generate():
     all_divisions = Division.query.all()
     session_divisions = [
         d for d in all_divisions
-        if d.semester in sems and d.course in REQUESTED_COURSES
+        if d.semester in sems and is_requested_course(d.course)
+        and is_course_semester_allowed(d.course, d.semester)
     ]
-    present_courses = {d.course for d in session_divisions if d.course in REQUESTED_COURSES}
+    present_courses = {canonical_course(d.course) for d in session_divisions}
     missing_courses = [course for course in REQUESTED_COURSES if course not in present_courses]
     missing_divisions = []
-    course_semesters = {(d.course, d.semester) for d in session_divisions}
+    course_semesters = {(canonical_course(d.course), d.semester) for d in session_divisions}
     for course, semester in sorted(course_semesters):
         expected = ['A'] if course == 'IMCA' else DIVISIONS
         course_sem_divisions = {
             d.division for d in session_divisions
-            if d.course == course and d.semester == semester
+            if canonical_course(d.course) == course and d.semester == semester
         }
         missing = [name for name in expected if name not in course_sem_divisions]
         if missing:
@@ -361,7 +377,7 @@ def timetable_generate():
     missing_allocations = [
         f'{d.course} Sem{d.semester} {d.division}'
         for d in session_divisions
-        if d.course in REQUESTED_COURSES and d.id not in allocated_division_ids
+        if canonical_course(d.course) in REQUESTED_COURSES and d.id not in allocated_division_ids
     ]
     faculty_map  = {f.id: f for f in Faculty.query.all()}
     subject_map  = {s.id: s for s in Subject.query.all()}
@@ -380,6 +396,7 @@ def timetable_generate():
 
     entries, shortages = generate_timetable(
         allocations, faculty_map, subject_map, division_map, room_list,
+        reserved_entries=locked_entries,
         return_diagnostics=True,
     )
     for e in entries:

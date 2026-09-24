@@ -26,15 +26,13 @@ IMCA_DIVS = ['A']
 
 # (course, semesters, shift, students, divisions)
 COURSES = [
-    ('BSc IT Hons', list(range(1, 7)),  'General', 60, ALL_DIVS),
     ('BSc IT',      list(range(1, 7)),  'General', 60, ALL_DIVS),
-    ('BCA Hons',    list(range(1, 7)),  'General', 60, ALL_DIVS),
     ('BCA',         list(range(1, 7)),  'General', 60, ALL_DIVS),
     ('IMCA',        list(range(1, 11)), 'General', 60, IMCA_DIVS),
     ('MCA',         list(range(1, 5)),  'Morning', 40, ALL_DIVS),
-    ('MCA NEP',     list(range(1, 5)),  'Morning', 40, ALL_DIVS),
+    ('MCA NEP',     [3, 4],             'Morning', 40, ALL_DIVS),
     ('MSc IT',      list(range(1, 5)),  'Morning', 40, ALL_DIVS),
-    ('MSc IT NEP',  list(range(1, 5)),  'Morning', 40, ALL_DIVS),
+    ('MSc IT NEP',  [3, 4],             'Morning', 40, ALL_DIVS),
 ]
 
 SUBJECT_BANK = {

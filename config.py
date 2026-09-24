@@ -38,15 +38,37 @@ EVEN_SEMESTERS = [2, 4, 6]
 SESSION_TYPES  = ['Odd', 'Even']   # Odd = sem 1,3,5,7 | Even = sem 2,4,6
 
 DIVISIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
-REQUESTED_COURSES = ['BCA Hons', 'BCA', 'IMCA', 'MCA', 'MCA NEP', 'MSc IT', 'MSc IT NEP']
+REQUESTED_COURSES = ['BSc IT', 'BCA', 'IMCA', 'MCA', 'MCA NEP', 'MSc IT', 'MSc IT NEP']
+COURSE_ALIASES = {
+    'BSc IT': 'BSc IT',
+    'BSc IT Hons': 'BSc IT',
+    'BCA': 'BCA',
+    'BCA Hons': 'BCA',
+}
+NEP_RESTRICTED_COURSES = {'MCA NEP', 'MSc IT NEP'}
+NEP_ALLOWED_SEMESTERS = {3, 4}
 MIN_DAILY_LECTURES = 3
-PREFERRED_DAILY_LECTURES = 4
+PREFERRED_DAILY_LECTURES = 3
 MIN_DAILY_FREE_LECTURES = 1
 MIN_SESSION_LECTURES = 3
 MAX_DAILY_FREE_LECTURES = 2
-DAILY_WORKING_SLOTS = 4
+DAILY_WORKING_SLOTS = 3
 DAILY_THEORY_SLOTS = 3
 DAILY_LAB_SLOTS = 1
+
+
+def canonical_course(course):
+    course = str(course or '').strip()
+    return COURSE_ALIASES.get(course, course)
+
+
+def is_requested_course(course):
+    return canonical_course(course) in REQUESTED_COURSES
+
+
+def is_course_semester_allowed(course, semester):
+    course = canonical_course(course)
+    return course not in NEP_RESTRICTED_COURSES or int(semester or 0) in NEP_ALLOWED_SEMESTERS
 
 DESIGNATION_MAX_HOURS = {
     'Vice Principal':      6,
