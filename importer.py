@@ -20,6 +20,21 @@ def import_faculty_excel(filepath):
     df = pd.read_excel(filepath)
     df.columns = [c.strip().lower().replace(' ', '_') for c in df.columns]
 
+    faculty_records = Faculty.query.all()
+    faculty_by_id = {faculty.faculty_id: faculty for faculty in faculty_records if faculty.faculty_id}
+    faculty_by_name = {faculty.name: faculty for faculty in faculty_records}
+    subjects_by_key = {
+        (subject.subject_name, subject.course, subject.semester): subject
+        for subject in Subject.query.all()
+    }
+    divisions_by_key = {
+        (division.course, division.semester, division.division): division
+        for division in Division.query.all()
+    }
+    allocation_keys = set(
+        db.session.query(Allocation.faculty_id, Allocation.subject_id, Allocation.division_id).all()
+    )
+
     added = 0
     for _, row in df.iterrows():
         name = str(row.get('faculty_name', row.get('name', ''))).strip()
@@ -29,9 +44,9 @@ def import_faculty_excel(filepath):
         fac_id = str(row.get('faculty_id', '')).strip()
         # Match by faculty_id tag first (FAC-1001), fall back to name
         if fac_id and fac_id != 'nan':
-            faculty = Faculty.query.filter_by(faculty_id=fac_id).first()
+            faculty = faculty_by_id.get(fac_id)
         else:
-            faculty = Faculty.query.filter_by(name=name).first()
+            faculty = faculty_by_name.get(name)
 
         if not faculty:
             faculty = Faculty(
@@ -45,6 +60,9 @@ def import_faculty_excel(filepath):
             )
             db.session.add(faculty)
             db.session.flush()
+            if faculty.faculty_id:
+                faculty_by_id[faculty.faculty_id] = faculty
+            faculty_by_name[faculty.name] = faculty
             added += 1
 
         # Subject columns: subject_name, course, semester, type, lecture_hours, lab_hours
@@ -54,11 +72,8 @@ def import_faculty_excel(filepath):
         if not is_course_semester_allowed(course, semester):
             continue
         if sub_name and sub_name != 'nan':
-            subject = Subject.query.filter_by(
-                subject_name=sub_name,
-            course=course,
-                semester=semester,
-            ).first()
+            subject_key = (sub_name, course, semester)
+            subject = subjects_by_key.get(subject_key)
             if not subject:
                 sem      = semester
                 sub_type = str(row.get('type', 'Theory')).strip()
@@ -73,6 +88,7 @@ def import_faculty_excel(filepath):
                 )
                 db.session.add(subject)
                 db.session.flush()
+                subjects_by_key[subject_key] = subject
 
             # Division expansion rules:
             #   IMCA           -> div A only
@@ -86,9 +102,8 @@ def import_faculty_excel(filepath):
                 div_list = DIVISIONS   # A-I
 
             for div in div_list:
-                division = Division.query.filter_by(
-                    course=course, semester=semester, division=div
-                ).first()
+                division_key = (course, semester, div)
+                division = divisions_by_key.get(division_key)
                 if not division:
                     division = Division(
                         course       = course,
@@ -100,18 +115,16 @@ def import_faculty_excel(filepath):
                     )
                     db.session.add(division)
                     db.session.flush()
+                    divisions_by_key[division_key] = division
 
-                exists = Allocation.query.filter_by(
-                    faculty_id=faculty.id,
-                    subject_id=subject.id,
-                    division_id=division.id,
-                ).first()
-                if not exists:
+                allocation_key = (faculty.id, subject.id, division.id)
+                if allocation_key not in allocation_keys:
                     db.session.add(Allocation(
                         faculty_id=faculty.id,
                         subject_id=subject.id,
                         division_id=division.id,
                     ))
+                    allocation_keys.add(allocation_key)
 
     db.session.commit()
     return added

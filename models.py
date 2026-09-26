@@ -13,6 +13,7 @@ class User(db.Model, UserMixin):
 
 class Faculty(db.Model):
     __tablename__ = 'faculty'
+    __table_args__ = (db.Index('ix_faculty_name', 'name'),)
     id          = db.Column(db.Integer, primary_key=True)
     faculty_id  = db.Column(db.String(20), unique=True, nullable=True)  # e.g. FAC-1001
     name        = db.Column(db.String(100), nullable=False)
@@ -28,6 +29,10 @@ class Faculty(db.Model):
 
 class Subject(db.Model):
     __tablename__ = 'subject'
+    __table_args__ = (
+        db.Index('ix_subject_name_course_semester', 'subject_name', 'course', 'semester'),
+        db.Index('ix_subject_course_semester', 'course', 'semester'),
+    )
     id            = db.Column(db.Integer, primary_key=True)
     subject_name  = db.Column(db.String(100), nullable=False)
     course        = db.Column(db.String(50))
@@ -43,6 +48,9 @@ class Subject(db.Model):
 
 class Division(db.Model):
     __tablename__ = 'division'
+    __table_args__ = (
+        db.Index('ix_division_course_semester_division', 'course', 'semester', 'division'),
+    )
     id           = db.Column(db.Integer, primary_key=True)
     course       = db.Column(db.String(50))
     semester     = db.Column(db.Integer)
@@ -69,6 +77,10 @@ class Room(db.Model):
 class Allocation(db.Model):
     """Faculty → Subject → Division assignment"""
     __tablename__ = 'allocation'
+    __table_args__ = (
+        db.Index('ix_allocation_faculty_subject_division', 'faculty_id', 'subject_id', 'division_id'),
+        db.Index('ix_allocation_division', 'division_id'),
+    )
     id         = db.Column(db.Integer, primary_key=True)
     faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=False)
     subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
@@ -77,6 +89,10 @@ class Allocation(db.Model):
 
 class Timetable(db.Model):
     __tablename__ = 'timetable'
+    __table_args__ = (
+        db.Index('ix_timetable_division', 'division_id'),
+        db.Index('ix_timetable_faculty', 'faculty_id'),
+    )
     id         = db.Column(db.Integer, primary_key=True)
     day        = db.Column(db.String(20), nullable=False)
     slot       = db.Column(db.Integer, nullable=False)
@@ -86,3 +102,10 @@ class Timetable(db.Model):
     room_id    = db.Column(db.Integer, db.ForeignKey('room.id'))
     batch      = db.Column(db.String(10), nullable=True)   # A1, A2, A3 for lab batches
     locked     = db.Column(db.Boolean, default=False)
+
+
+class TimetableRevision(db.Model):
+    __tablename__ = 'timetable_revision'
+    id       = db.Column(db.Integer, primary_key=True)
+    revision = db.Column(db.Integer, nullable=False, default=0)
+    pending  = db.Column(db.Boolean, nullable=False, default=False)

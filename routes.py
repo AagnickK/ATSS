@@ -1,8 +1,10 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session, jsonify, send_file, current_app, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import generate_csrf
+from sqlalchemy import or_, update
+from sqlalchemy.orm import selectinload
 from extensions import db, bcrypt
-from models import User, Faculty, Subject, Division, Room, Allocation, Timetable
+from models import User, Faculty, Subject, Division, Room, Allocation, Timetable, TimetableRevision
 from config import DAYS, MORNING_SLOTS, GENERAL_SLOTS, DESIGNATIONS, SHIFTS, SUBJECT_TYPES, ROOM_TYPES, SESSION_TYPES, ODD_SEMESTERS, EVEN_SEMESTERS, DIVISIONS, REQUESTED_COURSES, DESIGNATION_MAX_HOURS, COURSE_ALIASES, canonical_course, is_requested_course, is_course_semester_allowed
 import otp as otp_module
 
@@ -287,30 +289,74 @@ def room_delete(rid):
 # ── Timetable Blueprint ───────────────────────────────────────────────────────
 tt_bp = Blueprint('tt_bp', __name__)
 
+
+def _timetable_display_options():
+    return (
+        selectinload(Timetable.faculty).load_only(Faculty.name),
+        selectinload(Timetable.subject).load_only(Subject.subject_name, Subject.type),
+        selectinload(Timetable.division).load_only(
+            Division.course, Division.semester, Division.division, Division.session_type,
+        ),
+        selectinload(Timetable.room).load_only(Room.room_no),
+    )
+
+
+def _requested_timetable_export_rows():
+    payload = request.get_json(silent=True)
+    rows = payload.get('rows') if isinstance(payload, dict) else None
+    if not isinstance(rows, list):
+        return None
+
+    columns = ('day', 'slot', 'faculty', 'subject', 'division', 'room', 'batch')
+    if any(not isinstance(row, dict) for row in rows):
+        return None
+    return [[str(row.get(column) or '') for column in columns] for row in rows]
+
+
+def _current_timetable_revision():
+    db.session.execute(
+        update(TimetableRevision)
+        .where(TimetableRevision.id == 1, TimetableRevision.pending.is_(True))
+        .values(
+            revision=TimetableRevision.revision + 1,
+            pending=False,
+        )
+    )
+    revision = db.session.query(TimetableRevision.revision).filter_by(id=1).scalar()
+    db.session.commit()
+    return revision
+
+
 @tt_bp.route('/timetable')
 @login_required
 def timetable_view():
-    entries    = Timetable.query.all()
     divisions  = Division.query.order_by(Division.course, Division.semester, Division.division).all()
     faculty    = Faculty.query.order_by(Faculty.name).all()
     courses    = sorted({canonical_course(d.course) for d in divisions if d.course})
     sel_div    = request.args.get('division_id', type=int)
     sel_fac    = request.args.get('faculty_id',  type=int)
     sel_session = request.args.get('session_type', '')   # 'Odd' | 'Even' | ''
+    cache_scope = f"{sel_session if sel_session in ('Odd', 'Even') else 'all'}:{sel_div or 0}:{sel_fac or 0}"
+    cache_revision = _current_timetable_revision()
+    cache_token = f'{cache_revision}:{cache_scope}'
+    cache_current = request.cookies.get('timetable_revision') == cache_token
 
+    query = Timetable.query
     if sel_session in ('Odd', 'Even'):
         sems = ODD_SEMESTERS if sel_session == 'Odd' else EVEN_SEMESTERS
-        entries = [
-            e for e in entries
-            if e.division
-            and e.division.semester in sems
-            and is_requested_course(e.division.course)
-            and is_course_semester_allowed(e.division.course, e.division.semester)
+        matching_division_ids = [
+            division.id for division in divisions
+            if division.semester in sems
+            and is_requested_course(division.course)
+            and is_course_semester_allowed(division.course, division.semester)
         ]
+        query = query.filter(Timetable.division_id.in_(matching_division_ids))
     if sel_div:
-        entries = [e for e in entries if e.division_id == sel_div]
+        query = query.filter(Timetable.division_id == sel_div)
     if sel_fac:
-        entries = [e for e in entries if e.faculty_id == sel_fac]
+        query = query.filter(Timetable.faculty_id == sel_fac)
+
+    entries = [] if cache_current else query.options(*_timetable_display_options()).all()
 
     return render_template('timetable.html',
                            entries=entries, days=DAYS,
@@ -318,7 +364,15 @@ def timetable_view():
                            divisions=divisions, faculty=faculty, courses=courses,
                            course_aliases=COURSE_ALIASES,
                            sel_div=sel_div, sel_fac=sel_fac,
-                           sel_session=sel_session, session_types=SESSION_TYPES)
+                           sel_session=sel_session, session_types=SESSION_TYPES,
+                           cache_scope=cache_scope, cache_revision=cache_revision,
+                           cache_token=cache_token, cache_current=cache_current)
+
+
+@tt_bp.route('/timetable/revision')
+@login_required
+def timetable_revision():
+    return jsonify({'revision': _current_timetable_revision()})
 
 @tt_bp.route('/timetable/generate', methods=['POST'])
 @login_required
@@ -333,24 +387,26 @@ def timetable_generate():
 
     sems = ODD_SEMESTERS if session_type == 'Odd' else EVEN_SEMESTERS
 
-    existing_entries = Timetable.query.all()
-    locked_entries = [
-        e for e in existing_entries
-        if e.division and (
-            e.locked or e.division.semester not in sems
-        )
-    ]
+    all_divisions = Division.query.all()
+    semester_division_ids = [d.id for d in all_divisions if d.semester in sems]
+    locked_entries = (
+        Timetable.query
+        .join(Timetable.division)
+        .filter(or_(
+            Timetable.locked.is_(True),
+            Division.semester.is_(None),
+            Division.semester.notin_(sems),
+        ))
+        .all()
+    )
 
-    # Clear only unlocked entries for this session
-    to_delete = [
-        e for e in Timetable.query.filter_by(locked=False).all()
-        if e.division and e.division.semester in sems
-    ]
-    for e in to_delete:
-        db.session.delete(e)
+    # Clear only unlocked entries for this session in one indexed DELETE.
+    Timetable.query.filter(
+        Timetable.locked.is_(False),
+        Timetable.division_id.in_(semester_division_ids),
+    ).delete(synchronize_session=False)
     db.session.commit()
 
-    all_divisions = Division.query.all()
     session_divisions = [
         d for d in all_divisions
         if d.semester in sems and is_requested_course(d.course)
@@ -372,7 +428,10 @@ def timetable_generate():
                 f'{course} Sem{semester}: {", ".join(missing)}'
             )
 
-    allocations  = Allocation.query.all()
+    allocations = Allocation.query.filter(
+        Allocation.division_id.in_([d.id for d in session_divisions])
+    ).all()
+    total_allocations = Allocation.query.count()
     allocated_division_ids = {a.division_id for a in allocations}
     missing_allocations = [
         f'{d.course} Sem{d.semester} {d.division}'
@@ -391,7 +450,7 @@ def timetable_generate():
         a for a in allocations
         if a.division_id in division_map
     ]
-    ignored_allocations = len(allocations) - len(available_allocations)
+    ignored_allocations = total_allocations - len(available_allocations)
     allocations = available_allocations
 
     entries, shortages = generate_timetable(
@@ -442,24 +501,21 @@ def timetable_lock(eid):
     db.session.commit()
     return jsonify({'locked': entry.locked})
 
-@tt_bp.route('/timetable/export/excel')
+@tt_bp.route('/timetable/export/excel', methods=['POST'])
 @login_required
 def export_excel():
     import io
     import openpyxl
+    rows = _requested_timetable_export_rows()
+    if rows is None:
+        return jsonify({'error': 'Invalid timetable export data.'}), 400
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = 'Timetable'
     ws.append(['Day', 'Slot', 'Faculty', 'Subject', 'Division', 'Room', 'Batch'])
-    for e in Timetable.query.all():
-        ws.append([
-            e.day, e.slot,
-            e.faculty.name  if e.faculty  else '',
-            e.subject.subject_name if e.subject else '',
-            f"{e.division.course} Sem{e.division.semester} {e.division.division}" if e.division else '',
-            e.room.room_no  if e.room    else '',
-            e.batch or '',
-        ])
+    for row in rows:
+        ws.append(row)
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -467,25 +523,21 @@ def export_excel():
                      as_attachment=True,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
-@tt_bp.route('/timetable/export/pdf')
+@tt_bp.route('/timetable/export/pdf', methods=['POST'])
 @login_required
 def export_pdf():
     import io
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
     from reportlab.lib import colors
+    rows = _requested_timetable_export_rows()
+    if rows is None:
+        return jsonify({'error': 'Invalid timetable export data.'}), 400
+
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4))
     data = [['Day', 'Slot', 'Faculty', 'Subject', 'Division', 'Room', 'Batch']]
-    for e in Timetable.query.all():
-        data.append([
-            e.day, str(e.slot),
-            e.faculty.name  if e.faculty  else '',
-            e.subject.subject_name if e.subject else '',
-            f"{e.division.course} Sem{e.division.semester} {e.division.division}" if e.division else '',
-            e.room.room_no  if e.room    else '',
-            e.batch or '',
-        ])
+    data.extend(rows)
     t = Table(data)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#222')),

@@ -25,8 +25,8 @@
                 <button type="submit" onclick="return confirm('Regenerate timetable? Unlocked entries will be cleared.')"
                     style="background:#FF9000;color:#18181b;font-weight:700;font-size:.875rem;padding:.5rem 1rem;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Generate</button>
             </form>
-            <a href="{{ url_for('tt_bp.export_excel') }}" class="bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 border border-stone-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm px-4 py-2 transition-colors">Export Excel</a>
-            <a href="{{ url_for('tt_bp.export_pdf') }}"   class="bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 border border-stone-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm px-4 py-2 transition-colors">Export PDF</a>
+            <button type="button" id="download-excel" class="bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 border border-stone-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm px-4 py-2 transition-colors">Export Excel</button>
+            <button type="button" id="download-pdf" class="bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 border border-stone-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm px-4 py-2 transition-colors">Export PDF</button>
         </div>
     </div>
 
@@ -244,7 +244,12 @@
 const PAGE_SIZE = 15;
 let currentPage = 1;
 let filteredRows = [];
+let visibleTimetableData = [];
 let sortCol = -1, sortAsc = true;
+const timetableCacheKey = 'atss-timetable:' + {{ cache_scope|tojson }};
+const timetableCacheToken = {{ cache_token|tojson }};
+const timetableCacheRevision = {{ cache_revision|tojson }};
+const timetableCacheCurrent = {{ cache_current|tojson }};
 
 const DAY_ORDER = { Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 };
 
@@ -309,6 +314,7 @@ function render() {
 
     const start = (currentPage - 1) * PAGE_SIZE;
     const end   = Math.min(start + PAGE_SIZE, total);
+    const visibleRows = filteredRows.slice(start, end);
 
     // Rebuild the DOM order so sorting is visible, including after filtering.
     const tbody = document.getElementById('tt-body');
@@ -316,7 +322,22 @@ function render() {
 
     // show/hide rows
     allRows().forEach(r => r.classList.add('hidden'));
-    filteredRows.forEach((r, i) => { if (i >= start && i < end) r.classList.remove('hidden'); });
+    visibleRows.forEach(r => r.classList.remove('hidden'));
+    visibleTimetableData = visibleRows.map(row => {
+        const cells = Array.from(row.cells, cell => cell.textContent.trim());
+        const room = cells[7].replace(/^(Room|Lab)\s+/, '');
+        return {
+            day: cells[0],
+            slot: cells[1],
+            faculty: cells[2],
+            subject: cells[3],
+            division: cells[4] && cells[5] && cells[6]
+                ? `${cells[4]} Sem${cells[5]} ${cells[6]}`
+                : '',
+            room: cells[7] === '—' ? '' : room,
+            batch: cells[8] === '—' ? '' : cells[8],
+        };
+    });
 
     // empty state
     document.getElementById('empty-state').classList.toggle('hidden', total > 0);
@@ -390,6 +411,32 @@ function render() {
     // Next  Last ›
     ctrl.appendChild(mkBtn('›', currentPage + 1, false, currentPage === totalPages, false));
     ctrl.appendChild(mkBtn('»', totalPages,       false, currentPage === totalPages, false));
+
+    saveTimetableCache();
+}
+
+function saveTimetableCache() {
+    try {
+        localStorage.setItem(timetableCacheKey, document.getElementById('tt-body').innerHTML);
+        document.cookie = `timetable_revision=${timetableCacheToken}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    } catch (_) {
+        // The server-rendered timetable remains usable when browser storage is unavailable.
+    }
+}
+
+function restoreTimetableCache() {
+    if (!timetableCacheCurrent) return;
+    try {
+        const cachedRows = localStorage.getItem(timetableCacheKey);
+        if (cachedRows !== null) {
+            document.getElementById('tt-body').innerHTML = cachedRows;
+            return;
+        }
+    } catch (_) {
+        // Fall through and request a fresh server-rendered timetable.
+    }
+    document.cookie = 'timetable_revision=; Path=/; Max-Age=0; SameSite=Lax';
+    window.location.reload();
 }
 
 function clearFilters() {
@@ -397,6 +444,48 @@ function clearFilters() {
         .forEach(id => { document.getElementById(id).value = ''; });
     applyFilters();
 }
+
+window.sortTable = sortTable;
+window.clearFilters = clearFilters;
+
+async function downloadVisibleTimetable(format) {
+    if (!visibleTimetableData.length) {
+        alert('No data to download.');
+        return;
+    }
+
+    const button = document.getElementById(`download-${format}`);
+    button.disabled = true;
+    try {
+        const response = await fetch(`/timetable/export/${format}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}',
+            },
+            body: JSON.stringify({ rows: visibleTimetableData }),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Download failed.');
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `timetable.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+        link.click();
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        alert(error.message || 'Download failed.');
+    } finally {
+        button.disabled = false;
+    }
+}
+
+document.getElementById('download-excel').addEventListener('click', () => downloadVisibleTimetable('excel'));
+document.getElementById('download-pdf').addEventListener('click', () => downloadVisibleTimetable('pdf'));
 
 // debounce search input
 let _t;
@@ -420,6 +509,7 @@ document.getElementById('tt-body').addEventListener('click', e => {
 });
 
 // init
+restoreTimetableCache();
 applyFilters();
 </script>
 {% endblock %}

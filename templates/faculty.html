@@ -231,6 +231,9 @@ function clearFacultyFilters() {
     applyFacFilters();
 }
 
+window.sortFac = sortFac;
+window.clearFacultyFilters = clearFacultyFilters;
+
 let _ft;
 document.getElementById('f-search').addEventListener('input', () => { clearTimeout(_ft); _ft = setTimeout(applyFacFilters, 200); });
 ['f-desig','f-shift','f-sort'].forEach(id => document.getElementById(id).addEventListener('change', applyFacFilters));

@@ -1,3 +1,11 @@
+.dashboard-loading-progress {
+    animation: dashboard-loading-progress 1.4s ease-in-out infinite;
+}
+
+@keyframes dashboard-loading-progress {
+    from { transform: translateX(-110%); }
+    to { transform: translateX(320%); }
+}
 /* ── Layout ─────────────────────────────────────────────────────────────── */
 .sidebar {
     position: fixed;

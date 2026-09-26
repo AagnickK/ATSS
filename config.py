@@ -6,6 +6,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'), override=True)
 class Config:
     SECRET_KEY                  = os.getenv('SECRET_KEY', 'atss-secret-key')
     SQLALCHEMY_DATABASE_URI     = 'sqlite:///' + os.path.join(os.path.dirname(__file__), 'instance', 'timetable.db')
+    SQLALCHEMY_ENGINE_OPTIONS   = {'connect_args': {'timeout': 30}}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 MORNING_SLOTS = [
