@@ -1,11 +1,22 @@
+# Environment variables
 .env
 .env.*
 !.env.example
 
+# Python cache
 __pycache__/
 *.pyc
 
+# Virtual environments
 venv/
 .venv/
 
+# VS Code
 .vscode/
+
+# Local documentation
+REPO_WORKING_EXPLANATION.md
+Attached Element Context from Integrated.txt
+
+# Database
+timetable.db
