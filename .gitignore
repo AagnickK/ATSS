@@ -6,6 +6,9 @@
 # Python cache
 __pycache__/
 *.pyc
+user.py
+test.py
+security.py
 
 # Virtual environments
 venv/
